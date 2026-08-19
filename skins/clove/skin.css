@@ -1,0 +1,719 @@
+/* mirasim-skin: clove — 无畏契约 Clove 风格致敬（pastel punk / smoke / butterflies）
+   Token sheet mirrors the app's own theme.css contract (same trick persona5
+   uses): the app consumes the --th- / --surface- / --radius- custom property
+   families, so a skin is mostly a palette. Effects live in skin.js; everything here is scoped to
+   html[data-skin="clove"], which skin.js sets on load. */
+
+html[data-skin="clove"] {
+  /* ---- palette: sampled from the keyart ---------------------- */
+  --cl-void:   #120c1c;   /* darkest smoke swirl */
+  --cl-ink:    #171021;
+  --cl-panel:  #1d1530;
+  --cl-panel2: #201736;
+  --cl-raised: #281d40;
+  --cl-elev:   #332553;
+
+  --cl-purple:      #9a63f5;   /* the smoke */
+  --cl-purple-hot:  #b07dff;
+  --cl-purple-deep: #6a3fd0;
+  --cl-pink:        #ef6ee0;   /* the jacket */
+  --cl-pink-hot:    #ff8ceb;
+  --cl-lilac:       #c9a8ff;   /* the haze */
+  --cl-mint:        #9beeea;   /* the butterflies */
+  --cl-cream:       #f7eefb;
+
+  /* ---- shape language: soft punk, not razors ----------------- */
+  --radius-sm:     6px;
+  --radius-md:     9px;
+  --radius-lg:     12px;
+  --radius-xl:     14px;
+  --radius-2xl:    18px;
+  --radius-bubble: 14px;
+
+  /* ---- type: Valorant pairs DIN Next (UI) with Tungsten (condensed caps);
+     Windows ships Bahnschrift, which is the DIN lineage, with a real width
+     axis for the condensed display bits. CJK keeps the app's own face. ---- */
+  --font-sans: "Bahnschrift", "Segoe UI Variable Text", "Segoe UI",
+               "Mirasim CJK", "Microsoft YaHei UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", "Mirasim CJK",
+               Consolas, ui-monospace, monospace;
+
+  /* ---- surfaces ---------------------------------------------- */
+  --th-surface:   var(--cl-void);
+  --surface-0:    var(--cl-void);
+  --surface-1:    var(--cl-ink);
+  --surface-2:    var(--cl-panel);
+  --surface-3:    var(--cl-raised);
+  --surface-elev: var(--cl-elev);
+  --th-rail:      var(--cl-ink);
+  --th-raised:    var(--surface-3);
+  --agent-ink-mix: 100%;
+
+  /* ---- foreground: lavender-tinted near-white ----------------- */
+  --th-fg:   #f6f1fd;
+  --th-fg-2: #ece3fbef;
+  --th-fg-3: #ded0f5db;
+  --th-fg-4: #cbb8ecc9;
+  --th-fg-5: #b5a0dcb3;
+  --th-fg-6: #9c88c46e;
+  --bubble-fill: color-mix(in oklab, var(--th-fg) 10%, transparent);
+
+  /* ---- panels & insets ---------------------------------------- */
+  --th-panel:     var(--surface-2);
+  --th-panel-h:   var(--surface-3);
+  --th-panel-alt: var(--cl-panel2);
+  --th-inset:     #0d0817;
+  --th-inset-hl:  #b07dff17;
+
+  /* ---- controls ----------------------------------------------- */
+  --th-control-bg:       #251a3e;
+  --th-control-bg-h:     #2d2050;
+  --th-control-border:   #c9a8ff26;
+  --th-control-border-h: #c9a8ff59;
+
+  /* ---- edges: barely-there — smoke has few hard lines. brighter
+     values here made nested panels read as double boxes ------------ */
+  --th-edge:      #c9a8ff1c;
+  --th-edge-h:    #c9a8ff45;
+  --edge-subtle:  #c9a8ff12;
+  --edge-default: #c9a8ff1e;
+  --edge-strong:  #c9a8ff3d;
+
+  /* ---- interaction: selection is a purple wash ----------------- */
+  --layer-hover:      #c9a8ff17;
+  --layer-selected:   #9a63f54a;
+  --layer-selected-h: #9a63f562;
+  --layer-active:     #9a63f57d;
+  --fill-card:        #0d081766;
+  --fill-card-h:      #0d081733;
+  --fill-chip:        #b07dff1c;
+
+  /* ---- primary action: smoke purple ---------------------------- */
+  --th-primary:    #a06ef8;
+  --th-primary-fg: #ffffff;
+  --th-primary-h:  #b381ff;
+
+  /* ---- accent: the jacket pink ---------------------------------- */
+  --accent:      #ef6ee0;
+  --accent-text: #ff9df0;
+  --accent-fg:   #23102b;
+  --accent-dim:  #ef6ee08c;
+  --focus-ring:  #b07dff6e;
+  --cursor-ring: #b07dff80;
+  --th-accent:   var(--accent);
+
+  --brand-accent:    var(--cl-purple);
+  --brand-accent-fg: #ffffff;
+  --brand-glow-a:    #9a63f5a6;
+  --brand-glow-b:    #ef6ee066;
+  --brand-glow-idle: #9a63f500;
+
+  /* ---- chrome --------------------------------------------------- */
+  --th-sidebar:  var(--surface-1);
+  --th-header:   #120c1ce3;
+  --th-modal-bg: var(--cl-elev);
+  --th-overlay:  #0a0613b3;
+  --th-dropdown: var(--surface-elev);
+
+  /* ---- ambient (the app's own orb/grid layer) ------------------- */
+  --th-grid-dot:    #b07dff2e;
+  --th-grad-start:  var(--cl-purple-hot);
+  --th-grad-mid:    var(--cl-pink);
+  --th-grad-end:    var(--cl-mint);
+  --th-glow-a:      #9a63f542;
+  --th-glow-b:      #ef6ee01f;
+  --th-shimmer-a:   #b07dff21;
+  --th-shimmer-b:   #9beeea1c;
+  --th-orb1:        #9a63f54d;
+  --th-orb2:        #ef6ee02e;
+  --th-orb3:        #9beeea21;
+  --th-noise:       .028;
+
+  /* ---- elevation: soft smoke shadows, faint lilac rim ------------ */
+  --elev-1: 0 1px 0 #c9a8ff17, 0 8px 22px -10px #05020ae8;
+  --elev-2: 0 1px 0 #c9a8ff20, 0 16px 40px -16px #05020af2;
+  --elev-3: 0 1px 0 #c9a8ff29, 0 28px 66px -20px #05020af7;
+  --pane-bg:            var(--surface-2);
+  --pane-edge:          var(--edge-subtle);
+  --pane-shadow-rest:   0 1px 2px #05020a59, 0 3px 10px -6px #05020a80;
+  --pane-shadow-active: 0 2px 4px #05020a66, 0 6px 16px -8px #05020a8c;
+  --th-card-shadow:     var(--elev-1);
+
+  /* ---- status ----------------------------------------------------- */
+  --th-ok:            #5fe0a8;
+  --th-ok-glow:       #5fe0a873;
+  --th-warn:          #ffcf6b;
+  --th-warn-glow:     #ffcf6b73;
+  --th-err:           #ff6b9d;
+  --th-err-glow:      #ff6b9d80;
+  --th-info:          #7fd6f2;
+  --th-info-glow:     #7fd6f273;
+  --th-running:       #d9a9ff;
+  --th-running-glow:  #d9a9ff80;
+  --th-idle:          #a893c99e;
+
+  /* ---- badges ------------------------------------------------------ */
+  --th-badge-ok-text:   #d3ffe9;
+  --th-badge-ok-bg:     #5fe0a82b;
+  --th-badge-ok-border: #5fe0a859;
+
+  --th-badge-warn-text:   #fff1cf;
+  --th-badge-warn-bg:     #ffcf6b26;
+  --th-badge-warn-border: #ffcf6b54;
+
+  --th-badge-err-text:   #ffdcea;
+  --th-badge-err-bg:     #ff6b9d30;
+  --th-badge-err-border: #ff6b9d5e;
+
+  --th-badge-info-text:   #ddf5ff;
+  --th-badge-info-bg:     #7fd6f226;
+  --th-badge-info-border: #7fd6f254;
+
+  --th-badge-running-text:   #f3e2ff;
+  --th-badge-running-bg:     #d9a9ff26;
+  --th-badge-running-border: #d9a9ff5c;
+
+  --th-badge-muted-text:   #cbb8ecc9;
+  --th-badge-muted-bg:     #c9a8ff14;
+  --th-badge-muted-border: #c9a8ff30;
+
+  --th-badge-accent-text:   #2b1233;
+  --th-badge-accent-bg:     var(--cl-pink);
+  --th-badge-accent-border: #ff9df070;
+
+  --mission-change-color: var(--cl-mint);
+  --mission-motion-color: var(--cl-pink-hot);
+
+  /* ---- syntax: purple leads, mint strings --------------------------- */
+  --syn-keyword: #c792ff;
+  --syn-string:  #86ecb8;
+  --syn-number:  #ffb86b;
+  --syn-func:    #ffd28f;
+  --syn-type:    #8fb5ff;
+  --syn-comment: #8a78ab;
+  --syn-meta:    #7fe3ea;
+
+  /* ---- terminal ------------------------------------------------------ */
+  --term-bg:            #140e20;
+  --term-fg:            #f0e9fa;
+  --term-cursor:        var(--cl-pink);
+  --term-cursor-accent: #140e20;
+  --term-selection:     #6a3fd073;
+
+  --term-ansi-0:  #241a38;
+  --term-ansi-1:  #ff6b9d;
+  --term-ansi-2:  #58dfa2;
+  --term-ansi-3:  #ffcf6b;
+  --term-ansi-4:  #8fa7ff;
+  --term-ansi-5:  #d089ff;
+  --term-ansi-6:  #66dfe6;
+  --term-ansi-7:  #f0e9fa;
+  --term-ansi-8:  #6f5c94;
+  --term-ansi-9:  #ff8cb3;
+  --term-ansi-10: #74f2b8;
+  --term-ansi-11: #ffe08f;
+  --term-ansi-12: #adbcff;
+  --term-ansi-13: #dfa6ff;
+  --term-ansi-14: #85ecf2;
+  --term-ansi-15: #ffffff;
+}
+
+/* ============================================================
+   2. The keyart wallpaper + smoke vignette layers
+   ============================================================ */
+
+/* The app's root container is positioned and opaque, so an under-layer
+   wallpaper would never show (persona5 hits the same wall — its visible art
+   is all high-z low-opacity overlays). Same play here: the keyart ghosts OVER
+   the UI, screen-blended so it adds smoke-glow without muddying text, and a
+   mask keeps the left/content side calm while the figure haunts the right. */
+html[data-skin="clove"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--cl-void);
+}
+
+html[data-skin="clove"] body::before {
+  content: "";
+  position: fixed;
+  /* full-bleed again: the window-controls strip is now transparent, so the
+     glow flows straight through behind the caption buttons */
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  opacity: .27;
+  mix-blend-mode: screen;
+  background: url(./assets/keyart.jpg) 76% 30%/cover no-repeat;
+  -webkit-mask-image: radial-gradient(84% 96% at 80% 58%, #000f 0%, #000a 56%, transparent 80%);
+  mask-image: radial-gradient(84% 96% at 80% 58%, #000f 0%, #000a 56%, transparent 80%);
+}
+
+/* breathing top rim + corner glows + a Ruse smoke-ring watermark,
+   over everything, never intercepting */
+html[data-skin="clove"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483001;
+  pointer-events: none;
+  background-image:
+    radial-gradient(90% 55% at 100% 100%, #ef6ee014, #ef6ee000 62%),
+    radial-gradient(80% 50% at 0% 0%, #9a63f516, #9a63f500 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120' fill='none' stroke='%23c9a8ff' stroke-opacity='.13' stroke-width='7' stroke-linecap='round'%3E%3Cpath d='M30 36 Q42 28 54 36 T78 36 T94 32'/%3E%3Cpath d='M22 57 Q36 48 50 57 T78 57 T100 54'/%3E%3Cpath d='M26 78 Q40 70 54 78 T82 78 T96 75'/%3E%3Cpath d='M38 97 Q50 90 62 97 T86 95'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 0, 0 0, 3% 90%;
+  background-size: auto, auto, 240px 240px;
+  box-shadow:
+    inset 0 0 0 1px #c9a8ff14,
+    inset 0 -1px 0 #ef6ee038;
+}
+
+/* ============================================================
+   3. Small chrome details the tokens can't reach
+   ============================================================ */
+
+/* ---- type scale: everything one notch up. The app's own "large" setting
+   only zooms the transcript and is disabled while page-zoom is set, so the
+   skin bumps each fixed size instead — text grows, layout metrics don't. ---- */
+html[data-skin="clove"] [class*="text-[13.5px]"] { font-size: 15px; }
+html[data-skin="clove"] [class*="text-[13px]"]   { font-size: 14.5px; }
+html[data-skin="clove"] [class*="text-[12.5px]"] { font-size: 13.5px; }
+html[data-skin="clove"] [class*="text-[12px]"]   { font-size: 13px; }
+html[data-skin="clove"] [class*="text-[11.5px]"] { font-size: 12.5px; }
+html[data-skin="clove"] [class*="text-[11px]"]   { font-size: 12px; }
+html[data-skin="clove"] [class*="text-[10.5px]"] { font-size: 11.5px; }
+html[data-skin="clove"] [class*="text-[10px]"]   { font-size: 11px; }
+html[data-skin="clove"] [class*="text-[9.5px]"]  { font-size: 10.5px; }
+html[data-skin="clove"] [data-composer="input"],
+html[data-skin="clove"] [data-composer="input"]::placeholder { font-size: 15px; }
+
+/* micro-labels and chrome tighten up — the condensed axis is where the
+   Valorant HUD voice lives (no-ops on CJK glyphs, which have no width axis) */
+html[data-skin="clove"] [class*="uppercase"],
+html[data-skin="clove"] [class*="tracking-wide"],
+html[data-skin="clove"] [data-testid="group-strip"],
+html[data-skin="clove"] header {
+  font-stretch: 87.5%;
+  letter-spacing: .055em;
+}
+
+/* usage percentages read as HUD numerals */
+html[data-skin="clove"] [class*="rounded-full"][class*="bg-fg/10"] ~ span[class*="font-mono"] {
+  font-family: "Bahnschrift", var(--font-sans);
+  font-stretch: 75%;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+/* the skin's own furniture speaks the same type */
+.cl-menu, .cl-toast, .cl-ndy i { font-family: "Bahnschrift", system-ui, sans-serif; }
+.cl-ndy b {
+  font-family: "Bahnschrift", system-ui, sans-serif;
+  font-stretch: 75%;
+}
+
+html[data-skin="clove"] ::selection {
+  background: #9a63f59e;
+  color: #ffffff;
+}
+
+html[data-skin="clove"] input,
+html[data-skin="clove"] textarea {
+  caret-color: var(--cl-pink-hot);
+}
+
+html[data-skin="clove"] :focus-visible {
+  outline: 2px solid #b07dff85;
+  outline-offset: 1px;
+}
+/* …except inside the composer: the root's focus-within glow is the whole
+   affordance — an outline on the textarea reads as a second nested box
+   (this WAS the mystery inner box) */
+html[data-skin="clove"] [data-composer="root"] :focus-visible {
+  outline: none;
+}
+
+/* every press lands with a soft settle */
+html[data-skin="clove"] button:active {
+  transform: translateY(1px);
+}
+
+/* scrollbars: a smoke→jacket gradient sliver */
+html[data-skin="clove"] *::-webkit-scrollbar { width: 9px; height: 9px; }
+html[data-skin="clove"] *::-webkit-scrollbar-track { background: transparent; }
+html[data-skin="clove"] *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #9a63f5cc, #ef6ee0cc);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+html[data-skin="clove"] *::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #b07dff, #ff8ceb);
+  background-clip: padding-box;
+}
+
+/* ============================================================
+   4. Structure — hooked on the app's stable data-* attrs.
+   Unmatched hooks degrade silently after app updates.
+   ============================================================ */
+
+/* left rail: smoky glass column — gradient spine, misty section falloff */
+html[data-skin="clove"] [data-testid="workbench-entries"] {
+  box-shadow: inset 2px 0 0 #9a63f5cc, inset 3px 0 0 #ef6ee055, inset -14px 0 22px -20px #05020a;
+  background-image:
+    linear-gradient(180deg, #9a63f51c, transparent 26%, transparent 72%, #ef6ee014),
+    linear-gradient(160deg, #9a63f514, transparent 38%);
+}
+html[data-skin="clove"] [data-testid="workbench-entries"] button:hover {
+  background: linear-gradient(90deg, #9a63f530, #ef6ee01c);
+}
+html[data-skin="clove"] [data-testid="group-strip"] {
+  background-image: linear-gradient(90deg, #9a63f51f, transparent 72%);
+  box-shadow: inset 0 -1px 0 #c9a8ff26;
+}
+html[data-skin="clove"] [data-workspace-actions] button:hover {
+  background: #b07dff26;
+}
+
+/* titlebar carries the gradient all the way across — the OS controls strip is
+   transparent now, so this shows through behind the caption buttons too */
+html[data-skin="clove"] header {
+  background-image: linear-gradient(90deg, #9a63f52b, #ef6ee01c 55%, #b07dff21);
+  box-shadow: inset 0 -1px 0 #c9a8ff2b;
+}
+
+/* composer: the ONE clear line on screen; ancestors keep no competing box */
+html[data-skin="clove"] [data-composer="root"] {
+  border-color: #b07dff3b;
+  background: #211838f0;
+  box-shadow: 0 10px 28px -16px #05020ad9;
+}
+html[data-skin="clove"] [data-composer="root"]:focus-within {
+  border-color: #b07dff59;
+  box-shadow: 0 0 18px -6px #9a63f552, 0 10px 28px -16px #05020ad9;
+}
+
+html[data-skin="clove"] [data-composer-btn="send"] {
+  background-image: linear-gradient(135deg, #9a63f5, #ef6ee0);
+  color: #ffffff;
+}
+
+html[data-skin="clove"] [data-pane-project] {
+  background-image: linear-gradient(200deg, #ef6ee00f, transparent 45%);
+}
+
+/* usage popover meters: smoke→jacket gradient fill with a butterfly perched
+   on the tip; the percent glows pink. Selectors match the app's utility
+   classes by substring (survives size tweaks better than exact chains).
+   (Fill ships an inline background-color, hence the one !important.) */
+html[data-skin="clove"] [class*="rounded-full"][class*="bg-fg/10"] {
+  background: #b07dff21;
+  overflow: visible;          /* the tip butterfly leans past the track */
+  height: 5px;
+}
+html[data-skin="clove"] [class*="rounded-full"][class*="bg-fg/10"] > * {
+  position: relative;
+  background: linear-gradient(90deg, #9a63f5, #ef6ee0) !important;
+  box-shadow: 0 0 8px #b07dff73;
+  /* sweep out from empty on open; animating width (not scaleX) keeps the
+     butterfly on the tip undistorted. The implicit to-keyframe is the
+     element's own inline width, so any value lands correctly. */
+  animation: cl-meter-in .85s cubic-bezier(.2,.85,.3,1) both;
+  transition: width .5s cubic-bezier(.2,.85,.3,1);   /* live refreshes glide */
+}
+@keyframes cl-meter-in { from { width: 0; } }
+
+/* light sweeping along the filled bar, once, just after it lands */
+html[data-skin="clove"] [class*="rounded-full"][class*="bg-fg/10"] > *::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 0%, #ffffff6b 18%, transparent 38%) no-repeat;
+  background-size: 260% 100%;
+  animation: cl-sheen 1.15s .5s ease-out both;
+}
+@keyframes cl-sheen {
+  from { background-position: -130% 0; }
+  to   { background-position: 130% 0; }
+}
+
+/* the butterfly riding the tip — idles with a slow bob while the panel is open */
+html[data-skin="clove"] [class*="rounded-full"][class*="bg-fg/10"] > *::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23ffd7f6'%3E%3Cpath d='M11.6 12.6 L3 2.9 L1.4 7.4 L6.8 12 Z'/%3E%3Cpath d='M11.6 13.2 L4.2 14.6 L6.6 18.3 L10.2 15.7 Z' opacity='.85'/%3E%3Cpath d='M12.4 12.6 L21 2.9 L22.6 7.4 L17.2 12 Z'/%3E%3Cpath d='M12.4 13.2 L19.8 14.6 L17.4 18.3 L13.8 15.7 Z' opacity='.85'/%3E%3Cpath d='M12 10.4 L12.9 13 L12 17.2 L11.1 13 Z'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
+  filter: drop-shadow(0 0 3px #ef6ee0cc);
+  animation: cl-tip-bob 2.9s ease-in-out .9s infinite;
+  transform: translate(55%, -58%);
+}
+@keyframes cl-tip-bob {
+  0%, 100% { transform: translate(55%, -58%) rotate(-5deg); }
+  50%      { transform: translate(55%, -72%) rotate(5deg); }
+}
+
+html[data-skin="clove"] [class*="rounded-full"][class*="bg-fg/10"] ~ span[class*="font-mono"] {
+  color: #ff9df0;
+  text-shadow: 0 0 8px #ef6ee04d;
+}
+
+/* rows drift up out of the mist, one after another */
+html[data-skin="clove"] [class*="min-w-[200px]"] > * {
+  animation: cl-deal .44s cubic-bezier(.2,.8,.3,1) both;
+}
+html[data-skin="clove"] [class*="min-w-[200px]"] > :nth-child(2) { animation-delay: .06s; }
+html[data-skin="clove"] [class*="min-w-[200px]"] > :nth-child(3) { animation-delay: .12s; }
+html[data-skin="clove"] [class*="min-w-[200px]"] > :nth-child(4) { animation-delay: .18s; }
+html[data-skin="clove"] [class*="min-w-[200px]"] > :nth-child(5) { animation-delay: .24s; }
+html[data-skin="clove"] [class*="min-w-[200px]"] > :nth-child(6) { animation-delay: .30s; }
+@keyframes cl-deal {
+  from { opacity: 0; transform: translateY(7px); filter: blur(2.5px); }
+}
+
+/* the panel itself blooms open */
+html[data-skin="clove"] [class*="z-[60]"][class*="rounded-lg"] {
+  animation: cl-pop .28s cubic-bezier(.2,.85,.3,1.02) both;
+}
+@keyframes cl-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+}
+
+/* ============================================================
+   5. FX layer (built by skin.js): butterflies, pet, intro, NDY
+   ============================================================ */
+
+.cl-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483200;
+  pointer-events: none;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+}
+
+/* -- intro smoke ------------------------------------------------ */
+.cl-intro {
+  position: fixed;
+  inset: -12%;
+  z-index: 2147483300;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 38% at 48% 52%, #b07dffd9, #b07dff00 70%),
+    radial-gradient(36% 30% at 62% 42%, #ef6ee0c9, #ef6ee000 72%),
+    radial-gradient(50% 44% at 38% 40%, #6a3fd0e0, #6a3fd000 74%),
+    radial-gradient(120% 120% at 50% 50%, #120c1cff, #120c1cf0 55%, #120c1c00 78%);
+  animation: cl-intro 1.25s cubic-bezier(.22,.9,.3,1) forwards;
+}
+@keyframes cl-intro {
+  0%   { opacity: 1; transform: scale(1); }
+  55%  { opacity: .92; }
+  100% { opacity: 0; transform: scale(1.65); }
+}
+
+/* -- butterflies ------------------------------------------------- */
+.cl-bfly {
+  position: absolute;
+  left: 0; top: 0;
+  will-change: transform;
+  pointer-events: auto;
+  cursor: pointer;
+  filter: drop-shadow(0 0 6px #b07dff66);
+}
+.cl-bfly svg { display: block; overflow: visible; }
+.cl-bfly .wl, .cl-bfly .wr { animation: cl-flap .34s ease-in-out infinite alternate; }
+.cl-bfly .wl { transform-origin: 12px 12px; }
+.cl-bfly .wr { transform-origin: 12px 12px; animation-name: cl-flap-r; }
+@keyframes cl-flap   { from { transform: rotateY(12deg) rotate(-4deg); } to { transform: rotateY(68deg) rotate(6deg); } }
+@keyframes cl-flap-r { from { transform: rotateY(-12deg) rotate(4deg); } to { transform: rotateY(-68deg) rotate(-6deg); } }
+
+/* pet perches: slow lazy flap */
+.cl-pet {
+  position: fixed;
+  z-index: 2147483400;
+  pointer-events: auto;
+  cursor: grab;
+  user-select: none;
+  filter: drop-shadow(0 2px 10px #9a63f580);
+  transition: filter .25s;
+}
+.cl-pet:hover { filter: drop-shadow(0 2px 14px #ef6ee0b3); }
+.cl-pet.cl-drag { cursor: grabbing; }
+.cl-pet .wl, .cl-pet .wr { animation-duration: 1.9s; }
+.cl-pet.cl-flying .wl, .cl-pet.cl-flying .wr { animation-duration: .3s; }
+
+/* click ring: concentric double halo, after the Ruse smoke rings */
+.cl-ring {
+  position: absolute;
+  width: 34px; height: 34px;
+  margin: 0;
+  border: 1.5px solid #e08bf0aa;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #9a63f566, inset 0 0 0 1px #9beeea59;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* particle burst bits — round motes, some four-point sparkles */
+.cl-bit {
+  position: absolute;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.cl-bit.cl-star {
+  width: 8px; height: 8px;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+
+/* -- NOT DEAD YET banner ------------------------------------------ */
+.cl-ndy {
+  position: fixed;
+  top: 14vh; left: 50%;
+  z-index: 2147483500;
+  transform: translateX(-50%);
+  pointer-events: none;
+  text-align: center;
+  animation: cl-ndy 3.4s cubic-bezier(.2,.8,.25,1) forwards;
+}
+.cl-ndy b {
+  display: block;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: .34em;
+  padding-left: .34em; /* optical center vs letter-spacing */
+  color: #ffffff;
+  text-shadow: 0 0 18px #ef6ee0d9, 0 0 42px #9a63f5b3, 0 2px 0 #6a3fd0;
+}
+.cl-ndy i {
+  display: block;
+  margin-top: 8px;
+  font-style: normal;
+  font-size: 13px;
+  letter-spacing: .12em;
+  color: #e3d4fbd9;
+  text-shadow: 0 1px 8px #120c1c;
+}
+@keyframes cl-ndy {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(18px) scale(.92); }
+  12%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.02); }
+  18%  { transform: translateX(-50%) scale(1); }
+  78%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-26px); }
+}
+
+/* -- pet context menu ---------------------------------------------- */
+.cl-menu {
+  position: fixed;
+  z-index: 2147483550;
+  min-width: 148px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #1f1636f2;
+  border: 1px solid #c9a8ff38;
+  box-shadow: 0 14px 40px -12px #05020af5, 0 1px 0 #c9a8ff1f inset;
+  color: #f0e9fa;
+  font-size: 13px;
+}
+.cl-menu div {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cl-menu div:hover {
+  background: linear-gradient(90deg, #9a63f542, #ef6ee02e);
+}
+
+/* -- toast ----------------------------------------------------------- */
+.cl-toast {
+  position: fixed;
+  bottom: 9vh; left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483550;
+  padding: 9px 16px;
+  border-radius: 10px;
+  background: #1f1636e8;
+  border: 1px solid #c9a8ff3d;
+  color: #f0e9fa;
+  font-size: 13px;
+  pointer-events: none;
+  animation: cl-toast 2.6s ease forwards;
+}
+@keyframes cl-toast {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  12%, 82% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; }
+}
+
+/* -- ambient smoke wisps: two blurred plumes on a slow compositor loop -- */
+.cl-fx::before, .cl-fx::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.cl-fx::before {
+  background:
+    radial-gradient(26% 20% at 30% 68%, #9a63f52b, transparent 70%),
+    radial-gradient(20% 16% at 74% 26%, #6a3fd029, transparent 70%);
+  animation: cl-wisp1 76s ease-in-out infinite alternate;
+}
+.cl-fx::after {
+  background:
+    radial-gradient(22% 18% at 62% 78%, #ef6ee021, transparent 70%),
+    radial-gradient(15% 12% at 22% 20%, #9beeea16, transparent 70%);
+  animation: cl-wisp2 97s ease-in-out infinite alternate;
+}
+@keyframes cl-wisp1 { from { transform: translate(-4%, 2%) scale(1); }   to { transform: translate(5%, -3%) scale(1.16); } }
+@keyframes cl-wisp2 { from { transform: translate(3%, -2%) scale(1.12); } to { transform: translate(-5%, 3%) scale(.94); } }
+.cl-fx.cl-quiet::before, .cl-fx.cl-quiet::after, .cl-fx.cl-quiet .cl-dust { display: none; }
+
+/* -- rising light dust ------------------------------------------------ */
+.cl-dust i {
+  position: absolute;
+  bottom: -2vh;
+  border-radius: 50%;
+  background: #d9c5ff;
+  box-shadow: 0 0 6px #b07dffb3;
+  animation: cl-rise linear infinite;
+  will-change: transform, opacity;
+}
+@keyframes cl-rise {
+  0%   { transform: translateY(0) translateX(0);        opacity: 0; }
+  8%   { opacity: .75; }
+  60%  { opacity: .45; }
+  100% { transform: translateY(-108vh) translateX(4vw); opacity: 0; }
+}
+
+/* -- the corner glows breathe ----------------------------------------- */
+html[data-skin="clove"] body::after {
+  animation: cl-breathe 11s ease-in-out infinite alternate;
+}
+@keyframes cl-breathe { from { opacity: .72; } to { opacity: 1; } }
+
+/* -- usage popover: the refresh control is one of ours ----------------- */
+.cl-refresh-bfly { display: inline-block; line-height: 0; }
+.cl-refresh-bfly svg { display: block; }
+.cl-refresh-bfly .wl { animation: cl-flap 1.6s ease-in-out infinite alternate; transform-origin: 12px 12px; }
+.cl-refresh-bfly .wr { animation: cl-flap-r 1.6s ease-in-out infinite alternate; transform-origin: 12px 12px; }
+button:hover .cl-refresh-bfly .wl,
+button:hover .cl-refresh-bfly .wr,
+button:active .cl-refresh-bfly .wl,
+button:active .cl-refresh-bfly .wr { animation-duration: .28s; }
+
+/* -- reduced motion: keep the look, drop the show -------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .cl-intro { animation: none; opacity: 0; }
+  .cl-bfly .wl, .cl-bfly .wr, .cl-pet .wl, .cl-pet .wr { animation: none; }
+}

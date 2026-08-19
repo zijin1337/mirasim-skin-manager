@@ -1,0 +1,16 @@
+{
+  "name": "mirasim-skin-manager",
+  "version": "1.0.0",
+  "description": "Skin manager for the Mirasim desktop app — pick skins in-app, keep them across updates. Ships the Clove skin.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "install-skin": "node install.mjs",
+    "restore": "node install.mjs --restore",
+    "sync": "node sync.mjs",
+    "autosync": "node autosync.mjs"
+  },
+  "dependencies": {
+    "@electron/asar": "^3.2.10"
+  }
+}
