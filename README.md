@@ -50,8 +50,13 @@ powershell -ExecutionPolicy Bypass -File register-autosync.ps1
 ```
 
 Registers a scheduled task that runs hidden every 3 minutes and at logon. When it sees the
-loader missing from `app.asar` — which is exactly what an update does — it re-runs `install.mjs`.
-Restart the app once afterwards and the skin is back. It refuses to touch a half-written asar,
+loader missing from whatever the app currently renders from, it re-runs `install.mjs`.
+Restart the app once afterwards and the skin is back.
+
+Mirasim updates two ways and both drop the loader: the full installer replaces
+`resources/app.asar`, while an in-app update downloads `~/.mirasim/app/<version>` and points
+`state.json` at it — after which the window renders from that folder and the patched asar goes
+unused. The task watches both. It refuses to touch a half-written asar,
 logs to `autosync.log`, and does nothing at all when everything is already in place.
 
 Remove it with `Unregister-ScheduledTask -TaskName MirasimSkinAutoSync`.

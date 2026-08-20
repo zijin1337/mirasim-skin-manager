@@ -1,8 +1,13 @@
 // Re-apply the skin manager after a Mirasim app update.
 //
-// A Mirasim update ships a fresh official app.asar, which drops the loader —
-// the skins themselves and the user's pick live outside the app and survive.
-// This script notices that and re-runs install.mjs. Registered as a Windows
+// Mirasim updates two different ways, and BOTH drop the loader:
+//   · full installer  — replaces resources/app.asar
+//   · payload update  — downloads ~/.mirasim/app/<ver> and points state.json
+//                       "good" at it; the window then renders from that dir,
+//                       leaving the (still patched) asar unused
+// So this checks every target the app might actually render from. The skins
+// themselves and the user's pick live outside the app and always survive.
+// It re-runs install.mjs whenever any live target is missing the loader. Registered as a Windows
 // scheduled task (see register-autosync.ps1) so it keeps working with no
 // session or agent running.
 //
@@ -19,6 +24,7 @@ const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/(?=[A-Za
 const RES = process.env.MIRASIM_RESOURCES
   || path.join(os.homedir(), 'AppData/Local/Programs/@mirasimdesktop/resources');
 const ASAR = path.join(RES, 'app.asar');
+const UPD_ROOT = path.join(os.homedir(), '.mirasim', 'app');
 const LOG = path.join(HERE, 'autosync.log');
 const LOADER_NAME = 'mirasim-skinmgr-loader.js';
 
@@ -54,17 +60,30 @@ try {
     process.exit(0);
   }
 
+  // the payload dir the app actually renders from, when one is active
+  let payloadGap = null;
+  try {
+    const good = JSON.parse(fs.readFileSync(path.join(UPD_ROOT, 'state.json'), 'utf8')).good;
+    const idx = good && path.join(UPD_ROOT, good, 'renderer', 'index.html');
+    if (idx && fs.existsSync(idx) && !fs.readFileSync(idx, 'utf8').includes(LOADER_NAME)) {
+      payloadGap = good;
+    }
+  } catch (e) {}
+
   const force = process.argv.includes('--force');
-  if (skinned && !force) process.exit(0);   // steady state: silent, no log spam
+  if (skinned && !payloadGap && !force) process.exit(0);   // steady state: silent
 
   // settled? same size after a beat, or the installer is still copying
-  const before = st.size;
-  await new Promise((r) => setTimeout(r, 2000));
-  if (fs.statSync(ASAR).size !== before) { log('asar size still changing — retry next tick'); process.exit(0); }
+  if (!payloadGap) {
+    const before = st.size;
+    await new Promise((r) => setTimeout(r, 2000));
+    if (fs.statSync(ASAR).size !== before) { log('asar size still changing — retry next tick'); process.exit(0); }
+  }
 
   let version = 'unknown';
   try { version = JSON.parse(asar.extractFile(ASAR, 'package.json')).version; } catch (e) {}
-  log('loader missing (app ' + version + ') — reinstalling…');
+  log('loader missing from ' + (payloadGap ? 'payload ' + payloadGap : 'app.asar') +
+      ' (app ' + version + ') — reinstalling…');
 
   const out = execFileSync(process.execPath, [path.join(HERE, 'install.mjs')], {
     cwd: HERE, encoding: 'utf8', timeout: 300_000,
