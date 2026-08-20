@@ -49,9 +49,11 @@ Want the skins somewhere else? Set `MIRASIM_SKINS_DIR`.
 powershell -ExecutionPolicy Bypass -File register-autosync.ps1
 ```
 
-Registers a scheduled task that runs hidden every 3 minutes and at logon. When it sees the
+Registers a scheduled task that runs hidden every minute and at logon. When it sees the
 loader missing from whatever the app currently renders from, it re-runs `install.mjs`.
-Restart the app once afterwards and the skin is back.
+Restart the app once afterwards and the skin is back. The update lands while the app is
+quitting, so expect the first relaunch after an update to be unskinned — the task heals it
+within a minute, and the next launch has everything.
 
 Mirasim updates two ways and both drop the loader: the full installer replaces
 `resources/app.asar`, while an in-app update downloads `~/.mirasim/app/<version>` and points
