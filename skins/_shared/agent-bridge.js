@@ -151,8 +151,82 @@
       return false;
     }
 
+    /* ---- errands: dispatch, and claim the session it becomes ----
+       The server answers a prompt with {accepted, clientRef, sessionKey} or
+       {error, clientRef, message}, so an errand's session is claimed exactly —
+       no guessing which new workstream is ours. */
+    var pending = Object.create(null);
+    var seq = 0;
+
+    function newRef() {
+      return 'clove-' + Date.now().toString(36) + '-' + (++seq) + '-' +
+             Math.random().toString(36).slice(2, 8);
+    }
+
+    function settle(msg) {
+      var cr = msg && msg.clientRef;
+      var p = cr && pending[cr];
+      if (!p) return false;             // not ours: a general error, or a stale ref
+      delete pending[cr];
+      win.clearTimeout(p.timer);
+      if (msg.type === 'accepted') {
+        p.resolve({ sessionKey: msg.sessionKey, taskId: msg.taskId, queued: msg.taskId === '' });
+      } else {
+        p.reject(new Error(msg.message || 'refused'));
+      }
+      return true;
+    }
+
+    function dispatch(opts) {
+      opts = opts || {};
+      return new Promise(function (resolve, reject) {
+        if (!state.connected) { reject(new Error('没有连上 Mirasim')); return; }
+        if (!opts.prompt) { reject(new Error('空的差事')); return; }
+        var cr = newRef();
+        var frame = { type: 'prompt', clientRef: cr, prompt: String(opts.prompt) };
+        // Only send what the caller asked for: omitted fields let the app fall
+        // back to the user's own defaults for agent, model and effort.
+        var carry = ['workdir', 'agent', 'model', 'effort', 'agentPreset', 'locale'];
+        for (var i = 0; i < carry.length; i++) {
+          if (opts[carry[i]]) frame[carry[i]] = opts[carry[i]];
+        }
+        pending[cr] = {
+          resolve: resolve,
+          reject: reject,
+          timer: win.setTimeout(function () {
+            delete pending[cr];
+            reject(new Error('等了 20 秒没有回音'));
+          }, 20000),
+        };
+        if (!post(frame)) {
+          win.clearTimeout(pending[cr].timer);
+          delete pending[cr];
+          reject(new Error('socket 还没准备好'));
+        }
+      });
+    }
+
+    function stop(sessionKey) {
+      if (!sessionKey) return false;
+      return post({ type: 'stop', sessionKey: sessionKey });
+    }
+
+    function abandonPending(why) {
+      var keys = Object.keys(pending);
+      for (var i = 0; i < keys.length; i++) {
+        var p = pending[keys[i]];
+        delete pending[keys[i]];
+        win.clearTimeout(p.timer);
+        p.reject(new Error(why));
+      }
+    }
+
     function onFrame(msg) {
-      if (!msg || msg.type !== 'tasksense') return;
+      if (!msg) return;
+      if (msg.type === 'accepted' || msg.type === 'error') {
+        if (settle(msg)) return;
+      }
+      if (msg.type !== 'tasksense') return;
       var firstSinceConnect = prev === null;
       var r = diff(prev, msg.workstreams);
       prev = r.next;
@@ -187,6 +261,7 @@
         state.connected = false;
         // a reconnect re-seeds: the next first frame must not fabricate starts
         prev = null;
+        abandonPending('连接断了，这件差事没派出去');
         emit('disconnected', {});
         retry(url);
       };
@@ -231,7 +306,9 @@
         if (keys && keys.length) return post({ type: 'tasksenseFocus', sessionKeys: keys });
         return false;
       },
-      /* dispatch() lands with phase two (sending her on errands) */
+      /* send a real agent off on an errand; resolves with its sessionKey */
+      dispatch: dispatch,
+      stop: stop,
       __diff: diff,
     };
     win.__mirasimAgents = api;

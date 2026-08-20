@@ -189,6 +189,64 @@ http://127.0.0.1:8788/` lands a shot at a chosen moment. `node test-diff.mjs` as
 frame-diffing logic on its own in plain node. Run `node install.mjs` once first — the harness
 serves the renderer out of the `build/` tree that extracts.
 
+## Sending her on errands
+
+Right-click the pet and the top of the menu is a list of errands. Pick one and she opens a **real
+new session** and goes and does it — then flies back with the answer.
+
+The list is data, not code: `skins/clove/errands.js`. Edit it freely.
+
+```js
+window.__cloveErrands = [
+  { label: '仓库现在什么样',
+    prompt: '汇报未提交的改动和最近三个提交，三句话说完。只读，不要修改任何文件。',
+    safe: true },
+  { label: 'Skin self-check',
+    prompt: 'Is the loader in app.asar, which payload does state.json point at, …',
+    workdir: 'C:\\path\\to\\repo',      // omitted = wherever you were last working
+    safe: true },
+];
+```
+
+`safe: true` skips the confirmation, and should only be set for an errand whose prompt is fixed
+and read-only. Anything else — including **其他… (say it yourself)**, the free-text entry — shows
+you the resolved working directory and the full prompt, and dispatches nothing until you click
+派出去.
+
+An errand's butterfly wears a **mint ring**, so work you ordered never gets confused with work you
+started. It is also the one completion allowed to speak up: a normal run finishes quietly, but an
+errand flies back to the pet and pops its verdict in a bubble, because you asked for it.
+
+Three gates, deliberately:
+
+- **Three at a time.** In-flight dispatches count, so a fast double-click cannot slip a fourth
+  past the check.
+- **Free text always confirms.** The destination directory is on screen before anything runs.
+- **She never answers a permission prompt for you.** The protocol offers it; this does not use it.
+  An errand that needs approval turns amber and comes to you, like any other agent.
+
+Sent her somewhere she shouldn't be? Right-click → **叫她回来 (call her back)** stops every errand
+in flight.
+
+### How it works
+
+`{type:'prompt', clientRef, prompt, workdir, agent}` over the app's own socket, with `sessionKey`
+omitted so it opens a new session. The server answers `{type:'accepted', clientRef, sessionKey}`,
+which is how the errand's session is claimed exactly rather than guessed at, or
+`{type:'error', clientRef, message}` — whose reason is shown to you verbatim rather than swallowed.
+`stop` ends one. Model and effort are deliberately not sent, so an errand inherits your own
+defaults.
+
+Develop against it without spending tokens:
+
+```
+node fake-tasksense.mjs --errand 2200                  # menu -> dispatch -> ringed butterfly -> report
+node fake-tasksense.mjs --free 1400 --confirm-only     # hold on the confirmation, dispatch nothing
+node fake-tasksense.mjs --errand 2200 --refuse         # the server says no
+node fake-tasksense.mjs --errand 2200 --errand-times 5 # prove the gate holds at three
+node fake-tasksense.mjs --errand 1500 --callback 3400  # call her back
+```
+
 ## Credits & disclaimer
 
 Clove is a character from **VALORANT**, © Riot Games. This is an unofficial, non-commercial fan
@@ -237,3 +295,32 @@ The code is MIT-licensed (see `LICENSE`); the license covers the code, not the g
 `beat` / `waiting` / `done` / `failed` / `gone`），用自己的视觉语汇渲染；拿不到 feed 时全部静默
 降级，皮肤退回没有这功能时的样子。开发时用 `node fake-tasksense.mjs` 起一个假 app，六种状态都
 能复现，不用起真 agent。
+
+### 派她去办事
+
+右键桌宠，菜单顶部就是差事清单。点一条，她**开一个真的新会话**去办，办完飞回来把结论告诉你。
+
+清单是数据不是代码，在 `skins/clove/errands.js`，随你改。`safe: true` 免确认，**只有内容写死
+且只读的差事才该标 safe**；其余的（包括「其他…（自己说）」那条自由输入）都会先把**最终工作
+目录**和 prompt 全文摆给你看，不点「派出去」就什么都不会发生。
+
+差事的蝴蝶带一道**薄荷色细环**，所以你点的活和你自己开的活永远分得清。它也是唯一被允许开口的
+「完成」——普通会话跑完是安静散掉，差事跑完会飞回她身边弹气泡，因为那是你要的答案。
+
+三道闸门是故意的：
+
+- **同时最多三件。**在途的也算，所以手快双击也塞不进第四件。
+- **自由输入必须确认。**目标目录在动手之前就在屏幕上。
+- **她绝不替你点权限确认。**协议里有这个能力，这里不用。差事要授权就自己变琥珀色飞到你眼前，
+  跟别的 agent 一样等你按。
+
+派错地方了？右键 →「叫她回来」，在途的差事全部停掉。
+
+底层是 `{type:'prompt', clientRef, prompt, workdir, agent}`，省略 sessionKey 所以开新会话；
+服务端回 `{type:'accepted', clientRef, sessionKey}`，据此**精确认领**那个会话，而不是猜；被拒时
+回 `{type:'error', clientRef, message}`，原因原样显示给你，不吞。model / effort 故意不发，让差事
+继承你自己的默认设置。
+
+开发时不用花 token：`node fake-tasksense.mjs --errand 2200`（整条回路）、`--free 1400
+--confirm-only`（停在确认框，什么都不派）、`--refuse`（服务端拒绝）、`--errand-times 5`（验闸门）、
+`--callback 3400`（叫她回来）。

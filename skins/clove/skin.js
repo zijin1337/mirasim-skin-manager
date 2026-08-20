@@ -12,6 +12,7 @@
     quiet: 'mirasim-skin-clove-quiet',
     pet: 'mirasim-skin-clove-pet',
     pos: 'mirasim-skin-clove-pet-pos',
+    errands: 'mirasim-skin-clove-errands',
   };
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
@@ -275,6 +276,181 @@
     } catch (e) {}
   }
 
+  /* ---------- errands: sending her off on real work ----------
+     Everything here is gated on a connected bridge. No bridge, no menu group,
+     no way to start an agent by accident. */
+
+  var errandList = null;                  // from errands.js, once loaded
+  var recentWd = null, recentAt = 0;      // best guess at "where you were working"
+
+  function noteWorkdir(e) {
+    if (!e || !e.workdir) return;
+    var at = e.lastActivityAt || 0;
+    if (at >= recentAt) { recentAt = at; recentWd = e.workdir; }
+  }
+
+  function loadErrands(cb) {
+    if (errandList) { cb(errandList); return; }
+    if (window.__cloveErrands) { errandList = window.__cloveErrands; cb(errandList); return; }
+    var s = document.createElement('script');
+    s.src = (window.__SKIN_ROOT || './') + 'errands.js';
+    s.onload = function () { errandList = window.__cloveErrands || []; cb(errandList); };
+    s.onerror = function () { errandList = []; cb(errandList); };   // just "其他…" then
+    document.head.appendChild(s);
+  }
+
+  /* which sessions are errands SHE was sent on, as opposed to work you started
+     yourself. Persisted so a reload does not lose track of them. */
+  function errandBook() {
+    try { return JSON.parse(lsGet(LS.errands) || '{}'); } catch (e) { return {}; }
+  }
+  function errandWrite(m) { lsSet(LS.errands, JSON.stringify(m)); }
+  function errandRemember(key, label) {
+    var m = errandBook();
+    m[key] = { label: label, at: Date.now() };
+    errandWrite(m);
+  }
+  /* takes an EVENT: the feed keys a workstream by id, the dispatch answered
+     with a sessionKey, and they are not guaranteed to be spelled the same. */
+  function errandForget(e) {
+    var m = errandBook();
+    var keys = [e.id].concat(e.sessionKeys || []);
+    var hit = false;
+    for (var i = 0; i < keys.length; i++) if (keys[i] in m) { delete m[keys[i]]; hit = true; }
+    if (hit) errandWrite(m);
+    return hit;
+  }
+  function errandLabel(e) {
+    var m = errandBook();
+    var keys = [e.id].concat(e.sessionKeys || []);
+    for (var i = 0; i < keys.length; i++) if (m[keys[i]]) return m[keys[i]].label;
+    return null;
+  }
+  function errandCount() { return Object.keys(errandBook()).length; }
+
+  /* A dispatch is only written to the book once the server answers, so five
+     fast clicks all passed a check-then-act gate before any of them landed and
+     five agents went out. In-flight dispatches have to count against the
+     limit too. */
+  var inFlight = 0;
+  function errandLoad() { return errandCount() + inFlight; }
+
+  /* Entries are removed when their errand concludes — but only while the page
+     is open. One that finishes overnight would otherwise hold a slot forever,
+     so anything older than six hours is presumed long done. */
+  function errandSweep() {
+    var m = errandBook(), cut = Date.now() - 6 * 3600e3, hit = false;
+    for (var k in m) if (!m[k] || !m[k].at || m[k].at < cut) { delete m[k]; hit = true; }
+    if (hit) errandWrite(m);
+  }
+
+  var MAX_ERRANDS = 3;
+
+  function dispatchErrand(errand) {
+    var ag = window.__mirasimAgents;
+    if (!ag || !ag.dispatch) return;
+    errandSweep();
+    if (errandLoad() >= MAX_ERRANDS) { toast('她手上还有 ' + MAX_ERRANDS + ' 件事'); return; }
+    var wd = errand.workdir || recentWd || '';
+    var go = function () {
+      // re-check: the confirmation dialog may have sat open while others went out
+      if (errandLoad() >= MAX_ERRANDS) { toast('她手上还有 ' + MAX_ERRANDS + ' 件事'); return; }
+      inFlight++;
+      toast('她去办：' + errand.label);
+      ag.dispatch({ prompt: errand.prompt, workdir: wd || undefined, agent: 'claude' })
+        .then(function (r) {
+          inFlight--;
+          errandRemember(r.sessionKey, errand.label);
+          if (crew) crew.markErrand(r.sessionKey);
+          if (r.queued) toast('排上队了：' + errand.label);
+        })
+        .catch(function (err) {
+          inFlight--;
+          toast('没派出去 — ' + ((err && err.message) || '未知原因'));
+        });
+    };
+    // A fixed, read-only errand is one deliberate menu click. Anything else
+    // gets to say out loud where it will run before it runs.
+    if (errand.safe) go();
+    else askConfirm(errand, wd, go);
+  }
+
+  /* ---- the panel: free text, then an explicit confirmation ---- */
+  /* A dialog that asks whether to start a real agent gets a real scrim: the
+     keyart overlay sits at a very high z-index and washed the panel out, and a
+     modal should dim what is behind it anyway. */
+  function panel() {
+    var old = document.querySelector('.cl-scrim');
+    if (old) old.remove();
+    var scrim = document.createElement('div');
+    scrim.className = 'cl-scrim';
+    var el = document.createElement('div');
+    el.className = 'cl-ask';
+    scrim.appendChild(el);
+    document.body.appendChild(scrim);
+    var close = function () {
+      if (scrim.isConnected) scrim.remove();
+      removeEventListener('keydown', esc, true);
+    };
+    function esc(ev) { if (ev.key === 'Escape') { ev.preventDefault(); close(); } }
+    addEventListener('keydown', esc, true);
+    // clicking away is a cancel, never a confirm
+    scrim.addEventListener('pointerdown', function (ev) { if (ev.target === scrim) close(); });
+    return { el: el, close: close };
+  }
+
+  function row(el, tag, cls, txt) {
+    var d = document.createElement(tag);
+    if (cls) d.className = cls;
+    if (txt != null) d.textContent = txt;
+    el.appendChild(d);
+    return d;
+  }
+
+  function askConfirm(errand, wd, go) {
+    var p = panel();
+    row(p.el, 'b', null, '确认派出');
+    row(p.el, 'i', 'cl-ask-wd', wd ? ('她将在  ' + wd + '  开一个新 agent') : '她将开一个新 agent（未指定目录）');
+    row(p.el, 'pre', null, errand.prompt);
+    var bar = row(p.el, 'div', 'cl-ask-bar');
+    var cancel = row(bar, 'u', 'cl-ask-no', '取消');
+    var ok = row(bar, 'u', null, '派出去');
+    cancel.addEventListener('click', p.close);
+    ok.addEventListener('click', function () { p.close(); go(); });
+  }
+
+  function askFree() {
+    var wd = recentWd || '';
+    var p = panel();
+    row(p.el, 'b', null, '派她去办事');
+    row(p.el, 'i', 'cl-ask-wd', wd ? ('工作目录  ' + wd) : '未指定目录（用 app 的默认）');
+    var ta = row(p.el, 'textarea');
+    ta.rows = 4;
+    ta.placeholder = '要她做什么？她会开一个新会话真去跑。';
+    var bar = row(p.el, 'div', 'cl-ask-bar');
+    var cancel = row(bar, 'u', 'cl-ask-no', '取消');
+    var next = row(bar, 'u', null, '下一步');
+    cancel.addEventListener('click', p.close);
+    next.addEventListener('click', function () {
+      var text = (ta.value || '').trim();
+      if (!text) { ta.focus(); return; }
+      p.close();
+      askConfirm({ label: text.slice(0, 18), prompt: text, workdir: wd }, wd, function () {
+        dispatchErrand({ label: text.slice(0, 18), prompt: text, workdir: wd, safe: true });
+      });
+    });
+    setTimeout(function () { ta.focus(); }, 30);
+  }
+
+  function callThemBack() {
+    var ag = window.__mirasimAgents;
+    var m = errandBook();
+    var keys = Object.keys(m);
+    if (!ag || !ag.stop || !keys.length) return;
+    for (var i = 0; i < keys.length; i++) ag.stop(keys[i]);
+    toast('叫回来了 ' + keys.length + ' 件差事');
+  }
+
   /* ---------- her entourage: one butterfly per live agent ----------
      Reads only the bridge's events. `crew` is null until a bridge shows up, so
      every call site has to tolerate its absence. */
@@ -333,7 +509,7 @@
         return null;
       }
       var el = bfly(22, PURPLE, PINK);
-      el.className = 'cl-bfly cl-agent';
+      el.className = 'cl-bfly cl-agent' + (errandLabel(e) ? ' cl-errand' : '');
       layer.appendChild(el);
       it = { id: e.id, ev: e, el: el, anim: orbit(el), tickT: null, lastFlap: 0,
              urgent: false, stalled: false };
@@ -527,10 +703,13 @@
       var r = it.el.getBoundingClientRect();
       var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       try { it.anim.cancel(); } catch (x) {}
+      var label = errandLabel(e);
+      if (label) errandForget(e);
       if (kind === 'failed') {
         burst(cx, cy, 14);
         it.el.remove();
         showNDY(e.title);
+        if (label) report(e, 'failed', label);
       } else {
         // a farewell arc, then light points. Deliberately no toast: every
         // finished turn announcing itself becomes unbearable within the hour.
@@ -546,6 +725,7 @@
           it.el.remove();
         };
         if (a) a.onfinish = end; else end();
+        if (label) report(e, kind, label);
       }
       promote();
       renderBadge();
@@ -576,6 +756,41 @@
       });
     }
 
+    /* The dispatch answer can land after the feed already showed the session,
+       so the ring is applied both at birth and here. */
+    function markErrand(key) {
+      items.forEach(function (it) {
+        if (it.id === key || (it.ev.sessionKeys || []).indexOf(key) >= 0) {
+          it.el.classList.add('cl-errand');
+        }
+      });
+    }
+
+    /* An errand is the one finish that gets to interrupt: you asked for it, so
+       you want the answer without going to look for it. */
+    function report(e, kind, label) {
+      var el = document.createElement('div');
+      el.className = 'cl-agent-bubble cl-report' + (kind === 'failed' ? ' cl-bad' : '');
+      var b = document.createElement('b');
+      b.textContent = kind === 'failed' ? '差事失败' : '差事回来了';
+      var t = document.createElement('s');
+      t.textContent = label + ' — ' + (e.text || '（没有结论）');
+      var u = document.createElement('u');
+      u.textContent = '看细节';
+      u.addEventListener('click', function (ev) { ev.stopPropagation(); focus(e); dismiss(); });
+      el.appendChild(b); el.appendChild(t); el.appendChild(u);
+      el.addEventListener('click', function () { dismiss(); });
+      document.body.appendChild(el);
+      var key = 'report:' + e.id;
+      bubbles.set(key, el);
+      placeBubble(el);
+      function dismiss() {
+        if (el.isConnected) el.remove();
+        bubbles.delete(key);
+      }
+      setTimeout(dismiss, 30000);
+    }
+
     function hello(list) {
       for (var i = 0; i < list.length; i++) {
         var it = add(list[i], true);
@@ -585,7 +800,7 @@
 
     return {
       moveTo: moveTo, hello: hello, tick: tick, waiting: waiting, leave: leave,
-      setQuiet: setQuiet,
+      setQuiet: setQuiet, markErrand: markErrand,
       start: function (e) { add(e, false); },
       count: function () { return items.size; },
     };
@@ -716,6 +931,20 @@
         d.onclick = function () { closeMenu(); fn(); };
         m.appendChild(d);
       }
+      var ag = window.__mirasimAgents;
+      if (ag && ag.state && ag.state.connected && ag.dispatch) {
+        var list = errandList || window.__cloveErrands || [];
+        for (var ei = 0; ei < list.length; ei++) {
+          (function (errand) {
+            item('▸ ' + errand.label, function () { dispatchErrand(errand); });
+          })(list[ei]);
+        }
+        item('▸ 其他…（自己说）', function () { askFree(); });
+        if (errandLoad()) item('叫她回来（' + errandLoad() + '）', function () { callThemBack(); });
+        var sep = document.createElement('div');
+        sep.className = 'cl-menu-sep';
+        m.appendChild(sep);
+      }
       item('切换皮肤…（F9）', function () {
         if (window.__skinManager) window.__skinManager.open();
       });
@@ -794,10 +1023,15 @@
             var pr = pet.el.getBoundingClientRect();
             crew.moveTo(pr.left, innerHeight - pr.bottom);
           }
-          ag.on('hello', function (d) { crew.hello((d && d.alive) || []); });
-          ag.on('start', function (e) { crew.start(e); });
-          ag.on('activity', function (e) { crew.tick(e, true); });
-          ag.on('beat', function (e) { crew.tick(e, false); });
+          loadErrands(function () {});          // ready before the first right-click
+          ag.on('hello', function (d) {
+            var alive = (d && d.alive) || [];
+            for (var i = 0; i < alive.length; i++) noteWorkdir(alive[i]);
+            crew.hello(alive);
+          });
+          ag.on('start', function (e) { noteWorkdir(e); crew.start(e); });
+          ag.on('activity', function (e) { noteWorkdir(e); crew.tick(e, true); });
+          ag.on('beat', function (e) { noteWorkdir(e); crew.tick(e, false); });
           ag.on('waiting', function (e) { crew.waiting(e); });
           ag.on('done', function (e) { crew.leave(e, 'done'); });
           ag.on('failed', function (e) { crew.leave(e, 'failed'); });

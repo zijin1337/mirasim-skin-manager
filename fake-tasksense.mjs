@@ -37,6 +37,9 @@ const QUIET = argv.includes('--quiet');
 // --nobridge: 404 the bridge so the skin's own loader fails, proving the pet
 // still behaves exactly as it did before any of this existed.
 const NOBRIDGE = argv.includes('--nobridge');
+// --refuse / --deaf: exercise the two ways a dispatch can fail.
+const REFUSE = argv.includes('--refuse');
+const DEAF = argv.includes('--deaf');
 
 /* ---------------- scenarios ---------------- */
 
@@ -156,6 +159,11 @@ const CONFIG_JS = `window.__SKIN_ROOT = '/skins/${SKIN}/';
 window.__CLOVE_STALL_MS = ${Number(arg('stall', 1500))};   /* the 90s threshold, compressed */
 window.__FAKE_GAP = ${GAP};
 window.__POKE_AT = ${Number(arg('poke', 0))};
+window.__ERRAND_AT = ${Number(arg('errand', 0))};
+window.__ERRAND_TIMES = ${Number(arg('errand-times', 1))};
+window.__FREE_AT = ${Number(arg('free', 0))};
+window.__CALLBACK_AT = ${Number(arg('callback', 0))};
+window.__CONFIRM_ONLY = ${argv.includes('--confirm-only') ? 'true' : 'false'};
 try { localStorage.${QUIET ? "setItem('mirasim-skin-clove-quiet', '1')"
                           : "removeItem('mirasim-skin-clove-quiet')"}; } catch (e) {}
 `;
@@ -179,6 +187,95 @@ const DRIVER_JS = `(function () {
     s.onclose = function () { clearInterval(tick); };
   }
   start();
+
+  /* --errand: right-click the pet and click the first errand in the menu.
+     Real events through the real listeners, so this exercises the whole chain:
+     menu group appears (needs a connected bridge) -> dispatch -> the server's
+     accepted frame -> the errand is claimed -> ringed butterfly -> report. */
+  if (window.__ERRAND_AT) {
+    setTimeout(function () {
+      var pet = document.querySelector('.cl-pet');
+      if (!pet) { console.warn('errand: no pet'); return; }
+      var r = pet.getBoundingClientRect();
+      pet.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true,
+        clientX: Math.round(r.left + r.width / 2), clientY: Math.round(r.top + r.height / 2),
+      }));
+      setTimeout(function () {
+        var rows = document.querySelectorAll('.cl-menu div');
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].textContent.indexOf('▸') === 0 &&
+              rows[i].textContent.indexOf('其他') < 0) {
+            var times = window.__ERRAND_TIMES || 1;
+            for (var k = 0; k < times; k++) rows[i].click();
+            return;
+          }
+        }
+        console.warn('errand: no errand row in the menu (' + rows.length + ' rows)');
+      }, 120);
+    }, window.__ERRAND_AT);
+  }
+
+  /* helper: open the pet's own context menu with a real event */
+  function openPetMenu() {
+    var pet = document.querySelector('.cl-pet');
+    if (!pet) return false;
+    var r = pet.getBoundingClientRect();
+    pet.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true, cancelable: true,
+      clientX: Math.round(r.left + r.width / 2), clientY: Math.round(r.top + r.height / 2),
+    }));
+    return true;
+  }
+  function menuRow(match) {
+    var rows = document.querySelectorAll('.cl-menu div');
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].textContent.indexOf(match) >= 0) return rows[i];
+    }
+    return null;
+  }
+
+  /* --free: the path with the safety gate — type your own errand, then the
+     confirmation has to be clicked before anything is dispatched. */
+  if (window.__FREE_AT) {
+    setTimeout(function () {
+      if (!openPetMenu()) { console.warn('free: no pet'); return; }
+      setTimeout(function () {
+        var row = menuRow('其他');
+        if (!row) { console.warn('free: no 其他 row'); return; }
+        row.click();
+        setTimeout(function () {
+          var ta = document.querySelector('.cl-ask textarea');
+          if (!ta) { console.warn('free: no textarea'); return; }
+          ta.value = '数一数 skins 下面有几个文件，只读';
+          var next = null, us = document.querySelectorAll('.cl-ask u');
+          for (var i = 0; i < us.length; i++) if (us[i].textContent === '下一步') next = us[i];
+          if (!next) { console.warn('free: no 下一步'); return; }
+          next.click();
+          // the confirmation is a SECOND deliberate click; without it nothing goes out
+          setTimeout(function () {
+            var ok = null, u2 = document.querySelectorAll('.cl-ask u');
+            for (var j = 0; j < u2.length; j++) if (u2[j].textContent === '派出去') ok = u2[j];
+            if (!ok) { console.warn('free: no 派出去 (confirm missing!)'); return; }
+            if (window.__CONFIRM_ONLY) { console.warn('free: stopping at the confirmation'); return; }
+            ok.click();
+          }, 140);
+        }, 140);
+      }, 120);
+    }, window.__FREE_AT);
+  }
+
+  /* --callback: call the errands back in */
+  if (window.__CALLBACK_AT) {
+    setTimeout(function () {
+      if (!openPetMenu()) return;
+      setTimeout(function () {
+        var row = menuRow('叫她回来');
+        if (!row) { console.warn('callback: no 叫她回来 row'); return; }
+        row.click();
+      }, 120);
+    }, window.__CALLBACK_AT);
+  }
 
   /* --poke: hover and click the first agent butterfly once the story has had
      time to produce one. Real listeners, real dispatch — the point is to prove
@@ -288,11 +385,42 @@ const subscribers = new Set();
    the past, which is how a stalled agent is expressed. */
 function stamp(workstreams, idx) {
   const at = clockBase + idx * GAP;
-  return workstreams.map((w) => {
+  return workstreams.concat(errandStreams()).map((w) => {
     const out = Object.assign({}, w, { lastActivityAt: at - (w.stale || 0) });
     delete out.stale;
     return out;
   });
+}
+
+/* ---- errands the page dispatches ----
+   A real dispatch is answered with {accepted, clientRef, sessionKey}, and the
+   session then shows up in the feed like any other. Both halves are simulated
+   so the whole round trip — dispatch, claim, butterfly, verdict — is testable
+   without starting an agent. */
+const errands = [];               // {sessionKey, title, age, done}
+const ERRAND_STEPS = ['Read package.json', 'Bash git status', 'Grep TODO', 'Write report.md'];
+
+function errandStreams() {
+  return errands.map((e) => ({
+    id: e.sessionKey, title: e.title, agent: 'claude',
+    workdirs: [e.workdir || 'C:\\Users\\31394\\Documents\\ChatGPT\\Mirasim'],
+    sessionKeys: [e.sessionKey], lane: 'digest', unread: 0,
+    activity: e.done ? ERRAND_STEPS[ERRAND_STEPS.length - 1] : ERRAND_STEPS[e.age % ERRAND_STEPS.length],
+    waitingTitle: null,
+    running: e.done ? 0 : 1,
+    conclusion: e.done
+      ? { sessionKey: e.sessionKey, taskId: 't', at: clockBase + 9e5, kind: e.kind || 'done',
+          text: e.text || '看完了：3 个未提交改动，最近三个提交都是文档。' }
+      : null,
+  }));
+}
+
+function ageErrands() {
+  for (const e of errands) {
+    if (e.done) continue;
+    e.age++;
+    if (e.age >= Number(arg('errand-turns', 4))) e.done = true;   // it finishes on its own
+  }
 }
 
 function broadcast(o) {
@@ -301,7 +429,12 @@ function broadcast(o) {
 }
 
 function advance() {
-  if (cursor + 1 >= steps.length) return;       // story over: hold on the last frame
+  ageErrands();                                 // errands live on the same clock
+  if (cursor + 1 >= steps.length) {
+    // the scripted story is over, but dispatched errands still need frames
+    if (errands.length) broadcast({ type: 'tasksense', workstreams: stamp(steps[cursor][1], cursor) });
+    return;
+  }
   cursor++;
   const [label, workstreams] = steps[cursor];
   broadcast({ type: 'tasksense', workstreams: stamp(workstreams, cursor) });
@@ -340,6 +473,27 @@ server.on('upgrade', (req, socket) => {
         advance();
       } else if (m.type === 'tasksenseFocus') {
         console.log(`  [${id}] FOCUS requested: ${JSON.stringify(m.sessionKeys)}`);
+      } else if (m.type === 'prompt') {
+        console.log(`  [${id}] PROMPT  workdir=${m.workdir || '(none)'}  agent=${m.agent || '(default)'}`);
+        console.log(`  [${id}]         "${String(m.prompt).slice(0, 90)}"`);
+        if (REFUSE) {
+          console.log(`  [${id}]         -> refusing (--refuse)`);
+          send({ type: 'error', clientRef: m.clientRef, message: '这台机器上没有可用的 agent' });
+        } else if (DEAF) {
+          console.log(`  [${id}]         -> saying nothing (--deaf), the client should time out`);
+        } else {
+          const sessionKey = 'claude:errand-' + (errands.length + 1);
+          errands.push({
+            sessionKey, workdir: m.workdir, age: 0, done: false,
+            title: String(m.prompt).slice(0, 24),
+          });
+          send({ type: 'accepted', clientRef: m.clientRef, sessionKey, taskId: 'task-' + errands.length });
+          console.log(`  [${id}]         -> accepted as ${sessionKey}`);
+        }
+      } else if (m.type === 'stop') {
+        const e = errands.find((x) => x.sessionKey === m.sessionKey);
+        console.log(`  [${id}] STOP ${m.sessionKey}${e ? '' : ' (unknown session)'}`);
+        if (e) { e.done = true; e.kind = 'done'; e.text = '被叫回来了'; }
       } else {
         console.log(`  [${id}] -> ${raw.slice(0, 120)}`);
       }

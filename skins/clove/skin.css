@@ -651,6 +651,128 @@ html[data-skin="clove"] [class*="z-[60]"][class*="rounded-lg"] {
 }
 .cl-agent-bubble u:hover { background: #ffb45c33; }
 
+/* -- errands: work SHE was sent on ---------------------------------
+   A mint ring marks the butterflies you ordered, so an errand never gets
+   confused with work you started yourself. Ring rather than a transform:
+   the orbit animation owns transform. */
+.cl-agent.cl-errand::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid #9beeeaa6;
+  box-shadow: 0 0 9px #9beeea4d, inset 0 0 6px #9beeea1f;
+  pointer-events: none;
+}
+/* the report she brings back — the one `done` allowed to speak up, because
+   you asked for it */
+.cl-agent-bubble.cl-report { border-color: #9beeea59; }
+.cl-agent-bubble.cl-report b { color: #a9f2ee; }
+.cl-agent-bubble.cl-report u { background: #9beeea1c; border-color: #9beeea59; color: #bff6f3; }
+.cl-agent-bubble.cl-report u:hover { background: #9beeea2e; }
+.cl-agent-bubble.cl-report.cl-bad { border-color: #ff6b9d59; }
+.cl-agent-bubble.cl-report.cl-bad b { color: #ff9dbd; }
+.cl-agent-bubble.cl-report.cl-bad u { background: #ff6b9d1c; border-color: #ff6b9d59; color: #ffc3d7; }
+
+/* -- the ask panel: what she is about to be sent to do --------------
+   The scrim is not decoration: the keyart overlay lives at a very high
+   z-index and bled straight through the panel, and a dialog that starts a
+   real agent should dim the room while it asks. */
+.cl-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483500;
+  background: #0a0613ee;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 13vh;
+  animation: cl-scrim-in .16s ease-out;
+}
+@keyframes cl-scrim-in { from { opacity: 0; } }
+.cl-ask {
+  position: relative;
+  width: min(560px, calc(100vw - 48px));
+  padding: 14px 16px 13px;
+  border-radius: 14px;
+  background: linear-gradient(158deg, #2a1a3ef7, #17102afb);
+  border: 1px solid #b07dff45;
+  box-shadow: 0 22px 60px #000000b3, 0 0 0 1px #b07dff14 inset;
+  color: #f4ecff;
+  font: 500 13px/1.45 "Bahnschrift", system-ui, sans-serif;
+  animation: cl-pop .22s cubic-bezier(.2,.9,.3,1);
+}
+.cl-ask b {
+  display: block;
+  font: 600 11px/1.4 "Bahnschrift", system-ui, sans-serif;
+  font-stretch: 87.5%;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: #d9bcff;
+}
+.cl-ask i.cl-ask-wd {
+  display: block;
+  margin: 7px 0 9px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #0d081759;
+  border: 1px solid #c9a8ff1f;
+  font: 400 11px/1.4 "Cascadia Mono", ui-monospace, monospace;
+  font-style: normal;
+  color: #c9b6e8;
+  overflow-wrap: anywhere;
+}
+.cl-ask pre {
+  margin: 0;
+  max-height: 190px;
+  overflow: auto;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #0d0817a6;
+  border: 1px solid #c9a8ff1c;
+  font: 400 12px/1.5 "Cascadia Mono", ui-monospace, monospace;
+  color: #e7dcfa;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cl-ask textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #0d0817a6;
+  border: 1px solid #c9a8ff2e;
+  color: #f2ebff;
+  font: 400 12.5px/1.5 "Bahnschrift", system-ui, sans-serif;
+  resize: vertical;
+  outline: none;
+}
+.cl-ask textarea:focus { border-color: #b07dff73; box-shadow: 0 0 0 3px #b07dff1f; }
+.cl-ask .cl-ask-bar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 11px; }
+.cl-ask u {
+  padding: 5px 13px 6px;
+  border-radius: 8px;
+  background: #b07dff2b;
+  border: 1px solid #b07dff70;
+  color: #efe2ff;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+.cl-ask u:hover { background: #b07dff45; }
+.cl-ask u.cl-ask-no { background: transparent; border-color: #c9a8ff26; color: #b9a7d6; }
+.cl-ask u.cl-ask-no:hover { background: #c9a8ff14; }
+
+.cl-menu .cl-menu-sep {
+  height: 1px;
+  margin: 5px 8px;
+  padding: 0;
+  background: #c9a8ff26;
+  cursor: default;
+}
+.cl-menu .cl-menu-sep:hover { background: #c9a8ff26; }
+
 /* click ring: concentric double halo, after the Ruse smoke rings */
 .cl-ring {
   position: absolute;
