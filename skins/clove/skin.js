@@ -181,6 +181,7 @@
     if (fx) fx.classList.toggle('cl-quiet', q);
     if (q) { if (dust) { dust.remove(); dust = null; } }
     else buildDust();
+    if (crew) crew.setQuiet(q);
     scheduleAmbient();
   }
 
@@ -258,45 +259,336 @@
     if (pet && pet.resurrect) pet.resurrect();
   }
 
-  /* ---------- app event feed (session error → NDY) ---------- */
-  function watchSessions() {
-    var seen = {}, tries = 0;
+  /* ---------- the bridge: where knowledge of the app comes from ----------
+     Loaded from the shared skins dir rather than bundled here, so other skins
+     can render the same events with their own vocabulary. If it fails to load,
+     or loads and never connects, nothing below ever runs and the pet stays
+     exactly the decoration it was. */
+  function withBridge(fn) {
+    try {
+      if (window.__mirasimAgents) { fn(window.__mirasimAgents); return; }
+      var s = document.createElement('script');
+      s.src = (window.__SKIN_ROOT || './') + '../_shared/agent-bridge.js';
+      s.onload = function () { try { if (window.__mirasimAgents) fn(window.__mirasimAgents); } catch (e) {} };
+      s.onerror = function () {};
+      document.head.appendChild(s);
+    } catch (e) {}
+  }
 
-    function onFrame(m) {
-      if (m && m.type === 'sessions' && Array.isArray(m.sessions)) {
-        m.sessions.forEach(function (s) {
-          var was = seen[s.sessionKey];
-          if (was === 'running' && s.runState === 'error') showNDY(s.title);
-          seen[s.sessionKey] = s.runState;
+  /* ---------- her entourage: one butterfly per live agent ----------
+     Reads only the bridge's events. `crew` is null until a bridge shows up, so
+     every call site has to tolerate its absence. */
+  var crew = null;
+  var STALL_MS = 90000;                       // matches the app's own `stalled`
+  try { if (window.__CLOVE_STALL_MS) STALL_MS = +window.__CLOVE_STALL_MS; } catch (e) {}
+
+  function Crew() {
+    var MAX = 5;                              // six flying objects is noise
+    var layer = document.createElement('div');
+    layer.className = 'cl-agents';
+    document.body.appendChild(layer);
+
+    var items = new Map();                    // id -> item, the ones on screen
+    var queue = [];                           // events past the cap, oldest first
+    var bubbles = new Map();                  // id -> waiting bubble
+    var badge = null, label = null, labelFor = null, stallTimer = null;
+
+    function petCenter() {
+      if (!pet || !pet.el) return null;
+      var r = pet.el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+
+    /* she moves, they all move: only the layer is repositioned */
+    function moveTo(x, b) {
+      layer.style.left = (x + 18) + 'px';
+      layer.style.bottom = (b + 18) + 'px';
+      bubbles.forEach(placeBubble);
+    }
+
+    /* One infinite WAAPI animation per butterfly — the perf contract says no
+       rAF, and an ellipse sampled into keyframes is the same trick fly() uses
+       for bezier flight. */
+    function orbit(el) {
+      var rx = rand(44, 86), ry = rand(18, 38);
+      var ph = Math.random() * Math.PI * 2, dir = Math.random() < 0.5 ? 1 : -1;
+      var frames = [], N = 24;
+      for (var k = 0; k <= N; k++) {
+        var a = ph + dir * (k / N) * Math.PI * 2;
+        frames.push({
+          transform: 'translate(' + (Math.cos(a) * rx).toFixed(1) + 'px,' +
+                     (Math.sin(a) * ry - 30).toFixed(1) + 'px)',
         });
+      }
+      return el.animate(frames, { duration: rand(9000, 17000), iterations: Infinity, easing: 'linear' });
+    }
+
+    function add(e, silent) {
+      var it = items.get(e.id);
+      if (it) { it.ev = e; return it; }
+      if (items.size >= MAX) {
+        for (var q = 0; q < queue.length; q++) if (queue[q].id === e.id) return null;
+        queue.push(e);
+        renderBadge();
+        return null;
+      }
+      var el = bfly(22, PURPLE, PINK);
+      el.className = 'cl-bfly cl-agent';
+      layer.appendChild(el);
+      it = { id: e.id, ev: e, el: el, anim: orbit(el), tickT: null, lastFlap: 0,
+             urgent: false, stalled: false };
+      if (quiet() || REDUCED) { try { it.anim.pause(); } catch (x) {} }
+      items.set(e.id, it);
+      bind(it);
+      // `silent` is how an agent that was already running when the page loaded
+      // arrives: same butterfly, no entrance — it did not just start.
+      if (!silent && !quiet()) {
+        var c = petCenter();
+        if (c) burst(c.x, c.y, 6, 38);
+      }
+      applyStall(it);
+      renderBadge();
+      ensureStallTimer();
+      return it;
+    }
+
+    function bind(it) {
+      it.el.addEventListener('mouseenter', function () { showLabel(it); });
+      it.el.addEventListener('mouseleave', hideLabel);
+      it.el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var r = it.el.getBoundingClientRect();
+        ring(r.left + r.width / 2, r.top + r.height / 2);
+        focus(it.ev);
+      });
+    }
+
+    function focus(e) {
+      try { if (window.__mirasimAgents) window.__mirasimAgents.focus(e); } catch (x) {}
+    }
+
+    /* ---- hover: who is this, and what is it doing right now ---- */
+    function sub(it) {
+      if (it.ev.waiting) return '等你回答：' + it.ev.waiting;
+      if (it.stalled) return '停滞 · ' + (it.ev.activity || '无动静');
+      return it.ev.activity || '尚未开始';
+    }
+
+    function showLabel(it) {
+      hideLabel();
+      label = document.createElement('div');
+      label.className = 'cl-agent-label';
+      var b = document.createElement('b');
+      b.textContent = it.ev.title || it.ev.id;
+      var i = document.createElement('i');
+      i.textContent = sub(it);
+      label.appendChild(b);
+      label.appendChild(i);
+      document.body.appendChild(label);
+      labelFor = it;
+      var r = it.el.getBoundingClientRect();
+      var lw = label.offsetWidth, lh = label.offsetHeight;
+      label.style.left = Math.max(8, Math.min(r.left + r.width / 2 - lw / 2, innerWidth - lw - 8)) + 'px';
+      label.style.top = Math.max(8, r.top - lh - 10) + 'px';
+    }
+
+    function hideLabel() {
+      if (label) { label.remove(); label = null; labelFor = null; }
+    }
+
+    function refreshLabel(it) {
+      if (labelFor === it && label) {
+        var i = label.querySelector('i');
+        if (i) i.textContent = sub(it);
       }
     }
 
-    function connectTo(url) {
-      if (tries++ > 8) return;
+    /* ---- a step landed (hard) or a bare sign of life (soft) ---- */
+    function tick(e, hard) {
+      var it = items.get(e.id);
+      if (!it) { add(e, true); return; }
+      it.ev = e;
+      if (it.urgent && !e.waiting) clearUrgent(it);
+      applyStall(it);
+      refreshLabel(it);
+      if (!hard) return;
+      var now = Date.now();
+      if (now - it.lastFlap < 250) return;   // a fast stream must not saturate the pulse
+      it.lastFlap = now;
+      // A finite animation on the SVG child, not a class with a removal timer:
+      // a class that fails to come off leaves the butterfly permanently "busy",
+      // and the orbit already owns the parent's transform.
+      var svg = it.el.firstChild;
+      if (!svg || !svg.animate) return;
       try {
-        var sock = new WebSocket(url);
-        sock.onmessage = function (e) { try { onFrame(JSON.parse(e.data)); } catch (x) {} };
-        sock.onclose = function () { setTimeout(function () { connectTo(url); }, 15000); };
-      } catch (e) {}
+        svg.animate([
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.3)' },
+          { transform: 'scale(1)' },
+        ], { duration: 380, easing: 'cubic-bezier(.3,1.4,.4,1)' });
+      } catch (x) {}
     }
 
-    // http-served page: same-origin. file:// page (the asar renderer): ask the
-    // preload bridge where the server lives; degrade silently if we can't.
-    if (location.protocol.indexOf('http') === 0 && location.host) {
-      connectTo((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
-    } else if (window.mirasim && typeof window.mirasim.getServerInfo === 'function') {
-      Promise.resolve()
-        .then(function () { return window.mirasim.getServerInfo(); })
-        .then(function (info) {
-          var s = '';
-          try { s = JSON.stringify(info); } catch (e) { s = String(info); }
-          var m = /(?:127\.0\.0\.1|localhost):(\d{2,5})/.exec(s) ||
-                  /"port"\s*:\s*(\d{2,5})/.exec(s);
-          if (m) connectTo('ws://127.0.0.1:' + m[1] + '/ws');
-        })
-        .catch(function () {});
+    /* Stall is judged by the SERVER's timestamp, not a local timer: an agent
+       that went quiet ten minutes before this page loaded must look stalled on
+       the first frame, not spend 90s pretending to be busy. */
+    function applyStall(it) {
+      var last = it.ev.lastActivityAt || 0;
+      var st = !it.urgent && last > 0 && (Date.now() - last) > STALL_MS;
+      if (st === it.stalled) return;
+      it.stalled = st;
+      it.el.classList.toggle('cl-stalled', st);
+      refreshLabel(it);
     }
+
+    function ensureStallTimer() {
+      if (stallTimer || !items.size) return;
+      stallTimer = setInterval(function () {
+        if (!items.size) { clearInterval(stallTimer); stallTimer = null; return; }
+        items.forEach(applyStall);
+      }, 3000);
+    }
+
+    /* ---- it needs you: the one state allowed to interrupt ---- */
+    function waiting(e) {
+      var it = items.get(e.id) || add(e, true);
+      if (!it) return;
+      it.ev = e;
+      if (!it.urgent) {
+        it.urgent = true;
+        it.stalled = false;
+        it.el.classList.remove('cl-stalled');
+        it.el.classList.add('cl-urgent');
+        try { it.anim.cancel(); } catch (x) {}
+        // leave the orbit and hold above her, where the eye is already trained
+        try {
+          it.el.animate(
+            [{ transform: 'translate(0,-30px)' }, { transform: 'translate(-6px,-96px)' }],
+            { duration: 900, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+        } catch (x) {}
+      }
+      showBubble(it);
+    }
+
+    function clearUrgent(it) {
+      it.urgent = false;
+      it.el.classList.remove('cl-urgent');
+      var b = bubbles.get(it.id);
+      if (b) { b.remove(); bubbles.delete(it.id); }
+      it.anim = orbit(it.el);
+      if (quiet() || REDUCED) { try { it.anim.pause(); } catch (x) {} }
+    }
+
+    function showBubble(it) {
+      var old = bubbles.get(it.id);
+      if (old) old.remove();
+      var el = document.createElement('div');
+      el.className = 'cl-agent-bubble';
+      var b = document.createElement('b');
+      b.textContent = '等你回答';
+      var s = document.createElement('s');
+      s.textContent = it.ev.waiting || it.ev.title || '有一项确认等待你处理';
+      var u = document.createElement('u');
+      u.textContent = '去回答';
+      u.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        focus(it.ev);
+        el.remove();
+        bubbles.delete(it.id);
+      });
+      el.appendChild(b);
+      el.appendChild(s);
+      el.appendChild(u);
+      document.body.appendChild(el);
+      bubbles.set(it.id, el);
+      placeBubble(el);
+    }
+
+    function placeBubble(el) {
+      var c = petCenter();
+      if (!c) return;
+      var w = el.offsetWidth, h = el.offsetHeight;
+      el.style.left = Math.max(8, Math.min(c.x - w / 2, innerWidth - w - 8)) + 'px';
+      el.style.top = Math.max(8, c.y - h - 118) + 'px';
+    }
+
+    /* ---- it is over ---- */
+    function leave(e, kind) {
+      var keep = [];
+      for (var q = 0; q < queue.length; q++) if (queue[q].id !== e.id) keep.push(queue[q]);
+      queue = keep;
+      var it = items.get(e.id);
+      if (!it) { renderBadge(); return; }
+      items.delete(e.id);
+      if (labelFor === it) hideLabel();
+      var bub = bubbles.get(e.id);
+      if (bub) { bub.remove(); bubbles.delete(e.id); }
+      clearTimeout(it.tickT);
+      var r = it.el.getBoundingClientRect();
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      try { it.anim.cancel(); } catch (x) {}
+      if (kind === 'failed') {
+        burst(cx, cy, 14);
+        it.el.remove();
+        showNDY(e.title);
+      } else {
+        // a farewell arc, then light points. Deliberately no toast: every
+        // finished turn announcing itself becomes unbearable within the hour.
+        var a = null;
+        try {
+          a = it.el.animate([
+            { transform: 'translate(0,-30px)', opacity: 1 },
+            { transform: 'translate(' + rand(-30, 30).toFixed(0) + 'px,-104px)', opacity: 0 },
+          ], { duration: 820, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards' });
+        } catch (x) {}
+        var end = function () {
+          if (!quiet()) burst(cx, cy - 74, 7, 44);
+          it.el.remove();
+        };
+        if (a) a.onfinish = end; else end();
+      }
+      promote();
+      renderBadge();
+    }
+
+    function promote() {
+      while (items.size < MAX && queue.length) add(queue.shift(), true);
+    }
+
+    function renderBadge() {
+      if (!queue.length) {
+        if (badge) { badge.remove(); badge = null; }
+        return;
+      }
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'cl-agent-badge';
+        layer.appendChild(badge);
+      }
+      badge.textContent = '+' + queue.length;
+    }
+
+    /* Quiet mode keeps the butterflies — they are information, not decoration —
+       but grounds them. A waiting bubble still speaks. */
+    function setQuiet(q) {
+      items.forEach(function (it) {
+        try { if (q) it.anim.pause(); else if (!it.urgent) it.anim.play(); } catch (x) {}
+      });
+    }
+
+    function hello(list) {
+      for (var i = 0; i < list.length; i++) {
+        var it = add(list[i], true);
+        if (it && list[i].waiting) waiting(list[i]);
+      }
+    }
+
+    return {
+      moveTo: moveTo, hello: hello, tick: tick, waiting: waiting, leave: leave,
+      setQuiet: setQuiet,
+      start: function (e) { add(e, false); },
+      count: function () { return items.size; },
+    };
   }
 
   /* ---------- pet ---------- */
@@ -314,6 +606,7 @@
       x = Math.min(Math.max(6, x), W() - 42);
       el.style.left = x + 'px';
       el.style.bottom = Math.min(Math.max(8, b), innerHeight - 60) + 'px';
+      if (crew) crew.moveTo(x, Math.min(Math.max(8, b), innerHeight - 60));
     }
     place();
     addEventListener('resize', place);
@@ -490,7 +783,29 @@
 
       if (lsGet(LS.pet) !== 'off') pet = Pet();
       applyQuiet();
-      watchSessions();
+
+      /* The dashboard half: butterflies stand in for live agents. Everything
+         here is additive — with no bridge, none of it exists and she is the
+         decoration she always was. */
+      withBridge(function (ag) {
+        try {
+          crew = Crew();
+          if (pet) {
+            var pr = pet.el.getBoundingClientRect();
+            crew.moveTo(pr.left, innerHeight - pr.bottom);
+          }
+          ag.on('hello', function (d) { crew.hello((d && d.alive) || []); });
+          ag.on('start', function (e) { crew.start(e); });
+          ag.on('activity', function (e) { crew.tick(e, true); });
+          ag.on('beat', function (e) { crew.tick(e, false); });
+          ag.on('waiting', function (e) { crew.waiting(e); });
+          ag.on('done', function (e) { crew.leave(e, 'done'); });
+          ag.on('failed', function (e) { crew.leave(e, 'failed'); });
+          ag.on('gone', function (e) { crew.leave(e, 'gone'); });
+        } catch (e) {
+          try { console.warn('[clove] agent dashboard off:', e); } catch (x) {}
+        }
+      });
 
       window.addEventListener('keydown', function (e) {
         if (!e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return;

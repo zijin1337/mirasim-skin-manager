@@ -128,6 +128,67 @@ right-click the pet for quiet mode, reposition, or the skin picker.
 
 Everything respects `prefers-reduced-motion`, and quiet mode stops the ambience entirely.
 
+## Butterflies that are your agents
+
+The pet is not only decoration. Mirasim already tracks what every one of your sessions is doing —
+it just keeps that behind the task-monitor page. The skin subscribes to the same feed and gives it
+a body: **one butterfly per live agent, orbiting the pet.**
+
+- **Presence** — a butterfly means an agent is alive right now. Idle sessions are ignored; this
+  shows what is *happening*, not what exists.
+- **State, without clicking anything** — wings beat briskly while work lands, and a butterfly
+  pulses each time a tool step completes. An agent that has gone quiet for 90 seconds dims and
+  slows to a crawl (the app's own `stalled`). One that needs you turns amber, leaves the orbit and
+  pulses above the pet — the only state allowed to interrupt.
+- **Identity, on demand** — hover for the session title and the current step
+  ("Read tsconfig.json"); click to jump straight into that session.
+- **Endings** — a finished run drifts off and scatters into light. A failed one bursts, and
+  **NOT DEAD YET** fires. Success pops no toast: every completed turn announcing itself becomes
+  unbearable within the hour.
+- Cap of five, with a `+N` badge for the rest. Drag the pet and the whole entourage follows.
+  Quiet mode grounds them but keeps them — they are information, not ambience.
+
+Whether an agent was already running when the page loaded matters: those butterflies appear with
+no entrance, because they did not just start.
+
+### For skin authors
+
+The feed lives in `skins/_shared/agent-bridge.js` and knows nothing about butterflies, so any skin
+can render it in its own vocabulary:
+
+```js
+var ag = window.__mirasimAgents;          // absent if the bridge never connected
+ag.on('start',    function (e) { /* e.title, e.agent, e.workdir, e.activity */ });
+ag.on('activity', function (e) { /* one tool step landed */ });
+ag.on('beat',     function (e) { /* still alive, same step */ });
+ag.on('waiting',  function (e) { /* e.waiting is the question */ });
+ag.on('done',     function (e) { /* e.text is the verdict */ });
+ag.on('failed',   function (e) {});
+ag.on('gone',     function (e) {});
+ag.focus(e);                              // jump the app to that session
+```
+
+Everything degrades to silence: with no feed there are no events, and your skin behaves exactly as
+it does without one. Always guard on `window.__mirasimAgents` being there.
+
+### Developing against a fake app
+
+`fake-tasksense.mjs` serves the real renderer plus your skin over http and replays a scripted agent
+feed, so every state is reproducible without starting real agents:
+
+```
+node fake-tasksense.mjs                    # one agent: start -> work -> stall -> ask -> fail
+node fake-tasksense.mjs --scenario many    # seven at once (the cap and the +N badge)
+node fake-tasksense.mjs --quiet            # quiet mode
+node fake-tasksense.mjs --nobridge         # prove your skin survives without the feed
+```
+
+It prints the timeline with a page-time offset per frame, and the story advances on the page's own
+clock, so `msedge --headless=new --virtual-time-budget=7600 --screenshot=x.png
+http://127.0.0.1:8788/` lands a shot at a chosen moment. `node test-diff.mjs` asserts the
+frame-diffing logic on its own in plain node. Run `node install.mjs` once first — the harness
+serves the renderer out of the `build/` tree that extracts.
+
 ## Credits & disclaimer
 
 Clove is a character from **VALORANT**, © Riot Games. This is an unofficial, non-commercial fan
@@ -154,3 +215,25 @@ The code is MIT-licensed (see `LICENSE`); the license covers the code, not the g
 内置 Clove 皮肤：紫粉烟雾配色、代码绘制的碎片刃翼蝴蝶、会重生的蝴蝶桌宠、氛围蝶群与光尘、
 点击光圈、用量面板动画、会话失败时的 NOT DEAD YET。快捷键 Alt+Shift+B 放蝶群、Alt+Shift+M 收桌宠。
 本项目为非商业同人作品，Clove 与 VALORANT 版权归 Riot Games 所有，与 Riot 无关联。
+
+### 蝴蝶就是你的 agent
+
+桌宠不只是装饰。Mirasim 本来就在跟踪每个会话在干什么，只是把它锁在「任务指挥室」那一页里。
+皮肤订阅了同一条流，给它一个身体：**每个正在跑的 agent，在桌宠身边有一只蝴蝶。**
+
+- **在不在**：有蝴蝶就有 agent 活着。空闲会话不算——它表达的是"正在发生什么"，不是"有哪些会话"。
+- **什么状态，不用点**：干活时翅膀密，每完成一步工具调用抖一下；超过 90 秒没动静就变暗、慢摆
+  （对应 app 自己的 `stalled`）；需要你回答时转成琥珀色、脱离轨道、在桌宠上方搏动——这是唯一
+  允许打扰你的状态。
+- **是谁，要问才说**：悬停显示会话标题和当前那一步（"Read tsconfig.json"），点一下直接跳进去。
+- **收场**：跑完的飘走散成光点；失败的炸开，NOT DEAD YET 弹出。成功**不弹提示**——每个回合都
+  弹一次，两小时后你就想卸载了。
+- 上限 5 只，多的挂 `+N` 徽标。拖桌宠，整群跟着走。安静模式让它们停飞但**不让它们消失**——
+  它们是信息，不是氛围。
+
+页面加载时就已经在跑的 agent，蝴蝶**不放入场特效**——因为它不是刚刚才开始的。
+
+写皮肤的人可以直接订阅 `skins/_shared/agent-bridge.js` 抛出的事件（`start` / `activity` /
+`beat` / `waiting` / `done` / `failed` / `gone`），用自己的视觉语汇渲染；拿不到 feed 时全部静默
+降级，皮肤退回没有这功能时的样子。开发时用 `node fake-tasksense.mjs` 起一个假 app，六种状态都
+能复现，不用起真 agent。

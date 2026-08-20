@@ -158,14 +158,17 @@ function install() {
     }
 
     // 4. deploy bundled skins (only same-name dirs are replaced; third-party
-    //    skins in the directory are left untouched)
+    //    skins in the directory are left untouched). Underscore-prefixed dirs
+    //    are shared modules rather than skins — _shared/agent-bridge.js is the
+    //    live-agent feed any skin can subscribe to. sync.mjs skips them when
+    //    building the manifest, so they never show up in the picker.
     const srcRoot = path.join(HERE, 'skins');
     for (const s of fs.readdirSync(srcRoot, { withFileTypes: true })) {
       if (!s.isDirectory()) continue;
       const dst = path.join(SKINS_DIR, s.name);
       fs.rmSync(dst, { recursive: true, force: true });
       fs.cpSync(path.join(srcRoot, s.name), dst, { recursive: true });
-      console.log('skin deployed:', s.name);
+      console.log((s.name.startsWith('_') ? 'shared module deployed:' : 'skin deployed:'), s.name);
     }
 
     // 5. manifest

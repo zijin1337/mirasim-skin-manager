@@ -548,6 +548,109 @@ html[data-skin="clove"] [class*="z-[60]"][class*="rounded-lg"] {
 .cl-pet .wl, .cl-pet .wr { animation-duration: 1.9s; }
 .cl-pet.cl-flying .wl, .cl-pet.cl-flying .wr { animation-duration: .3s; }
 
+/* -- agent butterflies: her entourage IS your running agents -------
+   One per live workstream, orbiting wherever she currently sits. The layer is
+   the only thing that moves when she is dragged; each butterfly's orbit is a
+   single infinite WAAPI transform animation, so nothing here runs on rAF.
+
+   Note on the state styles below: the orbit owns `transform`, so every state
+   expresses itself through filter/opacity instead. A CSS keyframe touching
+   transform would simply lose to the WAAPI animation and look like a no-op. */
+.cl-agents {
+  position: fixed;
+  z-index: 2147483399;              /* just under her: she stays on top */
+  width: 0; height: 0;
+  pointer-events: none;             /* only the butterflies themselves take clicks */
+}
+.cl-agent {
+  position: absolute;
+  left: -11px; top: -11px;          /* centre a 22px butterfly on the origin */
+  pointer-events: auto;
+  transition: opacity .55s, filter .55s;
+}
+/* alive and stepping: brisker than her lazy perch, calmer than flight */
+.cl-agent .wl, .cl-agent .wr { animation-duration: 1.15s; }
+/* nothing at all for 90s — the app's own `stalled`. Dim, slow, unhurried. */
+.cl-agent.cl-stalled { opacity: .4; filter: saturate(.4) drop-shadow(0 0 5px #6b5a8a4d); }
+.cl-agent.cl-stalled .wl, .cl-agent.cl-stalled .wr { animation-duration: 3.6s; }
+/* it needs you. The one state allowed to interrupt: warm, bright, pulsing. */
+.cl-agent.cl-urgent { animation: cl-urgent 1.1s ease-in-out infinite alternate; }
+.cl-agent.cl-urgent .wl, .cl-agent.cl-urgent .wr { animation-duration: .3s; }
+@keyframes cl-urgent {
+  from { opacity: .88; filter: hue-rotate(133deg) saturate(1.15) drop-shadow(0 0 6px #ffb45c8c); }
+  to   { opacity: 1;   filter: hue-rotate(133deg) saturate(1.35)
+                                drop-shadow(0 0 15px #ffd9a0) drop-shadow(0 0 28px #ff9a3c7a); }
+}
+/* the ones past the cap */
+.cl-agent-badge {
+  position: absolute;
+  left: 15px; top: -36px;
+  padding: 1px 6px 2px;
+  border-radius: 999px;
+  background: #2a1a3eeb;
+  border: 1px solid #b07dff4d;
+  color: #d9c4ff;
+  font: 600 10px/1.5 "Bahnschrift", system-ui, sans-serif;
+  font-stretch: 87.5%;
+  pointer-events: none;
+  white-space: nowrap;
+}
+/* hover: which agent is this, and what is it doing right now */
+.cl-agent-label {
+  position: fixed;
+  z-index: 2147483402;
+  max-width: 340px;
+  padding: 6px 9px 7px;
+  border-radius: 9px;
+  background: #190f26f7;
+  border: 1px solid #b07dff3d;
+  box-shadow: 0 7px 24px #00000080;
+  color: #efe6fb;
+  font: 500 11.5px/1.3 "Bahnschrift", system-ui, sans-serif;
+  pointer-events: none;
+  animation: cl-pop .16s ease-out;
+}
+.cl-agent-label b { display: block; font-weight: 600; }
+.cl-agent-label i {
+  display: block;
+  margin-top: 3px;
+  font: 400 10.5px/1.35 "Cascadia Mono", ui-monospace, monospace;
+  font-style: normal;
+  opacity: .68;
+  overflow-wrap: anywhere;
+}
+/* the waiting bubble — the only thing that speaks up on its own */
+.cl-agent-bubble {
+  position: fixed;
+  z-index: 2147483403;
+  max-width: 268px;
+  padding: 9px 11px 9px;
+  border-radius: 11px;
+  background: linear-gradient(158deg, #2c1b40f7, #1b1029fb);
+  border: 1px solid #ffb45c59;
+  box-shadow: 0 11px 34px #000000a6;
+  color: #f7eeff;
+  font: 500 12px/1.42 "Bahnschrift", system-ui, sans-serif;
+  pointer-events: auto;
+  animation: cl-pop .3s cubic-bezier(.2,.9,.3,1);
+}
+.cl-agent-bubble b { display: block; font-weight: 600; color: #ffd9a8; font-size: 10.5px;
+  letter-spacing: .06em; font-stretch: 87.5%; text-transform: uppercase; margin-bottom: 3px; }
+.cl-agent-bubble s { display: block; text-decoration: none; overflow-wrap: anywhere; }
+.cl-agent-bubble u {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 9px 4px;
+  border-radius: 7px;
+  background: #ffb45c1f;
+  border: 1px solid #ffb45c66;
+  color: #ffd9a8;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 11px;
+}
+.cl-agent-bubble u:hover { background: #ffb45c33; }
+
 /* click ring: concentric double halo, after the Ruse smoke rings */
 .cl-ring {
   position: absolute;
