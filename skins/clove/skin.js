@@ -932,6 +932,18 @@
         m.appendChild(d);
       }
       var ag = window.__mirasimAgents;
+      // A bridge that exists but has not connected yet gets a visible reason,
+      // not a silently missing menu group — silence here reads as "the feature
+      // is gone" (it did, to the person this was built for).
+      if (ag && ag.dispatch && !(ag.state && ag.state.connected)) {
+        var dim = document.createElement('div');
+        dim.className = 'cl-menu-dim';
+        dim.textContent = '差事：还没连上 Mirasim，稍等再开';
+        m.appendChild(dim);
+        var sep0 = document.createElement('div');
+        sep0.className = 'cl-menu-sep';
+        m.appendChild(sep0);
+      }
       if (ag && ag.state && ag.state.connected && ag.dispatch) {
         var list = errandList || window.__cloveErrands || [];
         for (var ei = 0; ei < list.length; ei++) {

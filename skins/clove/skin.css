@@ -764,6 +764,12 @@ html[data-skin="clove"] [class*="z-[60]"][class*="rounded-lg"] {
 .cl-ask u.cl-ask-no { background: transparent; border-color: #c9a8ff26; color: #b9a7d6; }
 .cl-ask u.cl-ask-no:hover { background: #c9a8ff14; }
 
+.cl-menu .cl-menu-dim {
+  opacity: .5;
+  cursor: default;
+  font-size: 11px;
+}
+.cl-menu .cl-menu-dim:hover { background: transparent; }
 .cl-menu .cl-menu-sep {
   height: 1px;
   margin: 5px 8px;

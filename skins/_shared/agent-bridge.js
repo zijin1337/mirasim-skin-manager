@@ -121,7 +121,7 @@
     var prev = null;
     var sock = null;
     var tries = 0;
-    var BACKOFF = [5000, 15000, 60000];
+    var BACKOFF = win.__BRIDGE_BACKOFF || [5000, 15000, 60000];   // override is for tests
     var state = { connected: false, framesSeen: 0, workstreams: 0, url: null };
 
     function emit(type, payload) {
@@ -276,7 +276,21 @@
 
     /* Where does the server live? An http-served page is same-origin. The real
        renderer is a file:// document, so ask the preload bridge — the same
-       trick the clove skin already used for its own socket. */
+       trick the clove skin already used for its own socket.
+
+       Discovery MUST retry: at app boot the window comes up before the local
+       server does (the "正在连接主机…" moment), and getServerInfo answers with
+       port:null until then. A one-shot lookup at that moment finds nothing and
+       leaves the bridge permanently disconnected — the exact failure that hid
+       the errand menu and every agent butterfly on a fresh launch. */
+    var discoverTries = 0;
+
+    function scheduleDiscover() {
+      var wait = BACKOFF[Math.min(discoverTries, BACKOFF.length - 1)];
+      discoverTries++;
+      win.setTimeout(discover, wait);
+    }
+
     function discover() {
       try {
         if (win.location.protocol.indexOf('http') === 0 && win.location.host) {
@@ -285,15 +299,16 @@
           return;
         }
         var m = win.mirasim;
-        if (!m || typeof m.getServerInfo !== 'function') return;
+        if (!m || typeof m.getServerInfo !== 'function') { scheduleDiscover(); return; }
         Promise.resolve().then(function () { return m.getServerInfo(); }).then(function (info) {
           var s = '';
           try { s = JSON.stringify(info); } catch (e) { s = String(info); }
           var hit = /(?:127\.0\.0\.1|localhost):(\d{2,5})/.exec(s) ||
                     /"port"\s*:\s*(\d{2,5})/.exec(s);
-          if (hit) connect('ws://127.0.0.1:' + hit[1] + '/ws');
-        }).catch(function () {});
-      } catch (e) {}
+          if (hit) { discoverTries = 0; connect('ws://127.0.0.1:' + hit[1] + '/ws'); }
+          else scheduleDiscover();
+        }).catch(function () { scheduleDiscover(); });
+      } catch (e) { scheduleDiscover(); }
     }
 
     var api = {

@@ -190,5 +190,37 @@ else { fail++; console.log('  FAIL event payload: ' + JSON.stringify(e)); }
   else { fail++; console.log('  FAIL present(): ' + JSON.stringify(alive)); }
 }
 
+// Discovery must retry: at app boot the window exists before the local server
+// does, and getServerInfo answers port:null until then. A one-shot lookup left
+// the bridge permanently disconnected — no errand menu, no butterflies.
+await (async () => {
+  let infoCalls = 0;
+  const wsUrls = [];
+  const fakeWin = {
+    __BRIDGE_BACKOFF: [5, 5, 5],
+    location: { protocol: 'file:', host: '' },
+    mirasim: {
+      getServerInfo() {
+        infoCalls++;
+        return infoCalls < 3 ? { port: null, url: null }
+                             : { port: 4970, url: 'http://127.0.0.1:4970' };
+      },
+    },
+    WebSocket: function (url) { wsUrls.push(url); this.readyState = 0; },
+    setTimeout: setTimeout.bind(globalThis),
+    clearTimeout: clearTimeout.bind(globalThis),
+  };
+  // hand the fake window in AS `window`: the file's own tail calls install(window)
+  const m2 = { exports: {} };
+  new Function('module', 'window', src)(m2, fakeWin);
+  await new Promise((r) => setTimeout(r, 120));
+  const ok = infoCalls >= 3 && wsUrls.length === 1 && wsUrls[0] === 'ws://127.0.0.1:4970/ws';
+  if (ok) { pass++; console.log('  ok   discovery retries until the server has a port'); }
+  else {
+    fail++;
+    console.log('  FAIL discovery retry: infoCalls=' + infoCalls + ' wsUrls=' + JSON.stringify(wsUrls));
+  }
+})();
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
 process.exit(fail ? 1 : 0);
