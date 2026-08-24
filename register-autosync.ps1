@@ -1,5 +1,5 @@
-# Register the scheduled task that re-applies the skin manager after a Mirasim
-# app update. Idempotent — re-run to update the task definition.
+# Register the scheduled task that keeps the skin-manager watcher alive: a resident
+# process reinstalls the skin the moment an update drops it. Idempotent — re-run to update the task definition.
 #   powershell -ExecutionPolicy Bypass -File register-autosync.ps1
 # Remove with:  Unregister-ScheduledTask -TaskName "MirasimSkinAutoSync"
 $vbs = Join-Path $PSScriptRoot "autosync-hidden.vbs"
@@ -12,4 +12,4 @@ $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnB
          -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
 Register-ScheduledTask -TaskName "MirasimSkinAutoSync" -Action $action `
   -Trigger $tLogon,$tRepeat -Settings $set -Force `
-  -Description "Re-applies the Mirasim skin-manager loader after an app update (checks every minute; no-op when already installed)."
+  -Description "Keeps the Mirasim skin watcher alive (fs.watch heals updates in seconds and toasts; this task restarts the watcher if it died)."

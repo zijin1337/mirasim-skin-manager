@@ -43,26 +43,40 @@ skin — Clove is the default on first run.
 Non-standard install location? Set `MIRASIM_RESOURCES` to your Mirasim `resources` folder.
 Want the skins somewhere else? Set `MIRASIM_SKINS_DIR`.
 
-### Keep it through app updates (optional)
+### Keep it through app updates
 
-```powershell
+An app update replaces the files the loader lives in, so something has to put it back. Polling
+cannot: the update lands seconds before the app relaunches, so a once-a-minute check always
+arrives after the window has already read the unpatched files.
+
+```
 powershell -ExecutionPolicy Bypass -File register-autosync.ps1
 ```
 
-Registers a scheduled task that runs hidden every minute and at logon. When it sees the
-loader missing from whatever the app currently renders from, it re-runs `install.mjs`.
-Restart the app once afterwards and the skin is back. The update lands while the app is
-quitting, so expect the first relaunch after an update to be unskinned — the task heals it
-within a minute, and the next launch has everything.
+That registers a task which keeps `watch-and-heal.mjs` alive — a small resident process watching
+`resources/app.asar` and `~/.mirasim/app` with `fs.watch`. Any change hands off to `autosync.mjs`,
+which owns the safety guards (size floor, parseable archive, settle recheck, payload-gap
+detection). Measured end to end on a simulated update: **change to repaired in 9 seconds**, 2.5 of
+them a deliberate debounce.
 
-Mirasim updates two ways and both drop the loader: the full installer replaces
-`resources/app.asar`, while an in-app update downloads `~/.mirasim/app/<version>` and points
-`state.json` at it — after which the window renders from that folder and the patched asar goes
-unused. The task watches both. It refuses to touch a half-written asar,
-logs to `autosync.log`, and does nothing at all when everything is already in place.
+When a repair actually rewrites something, it raises a Windows notification telling you to
+relaunch once. That part matters more than the speed — a silent repair is indistinguishable from a
+broken skin to whoever is looking at the window, which is exactly how this kept coming back as a
+bug report.
 
-Remove it with `Unregister-ScheduledTask -TaskName MirasimSkinAutoSync`.
+The task still fires every minute, but as a **watchdog** rather than a poller: the watcher takes a
+single-instance lock and exits immediately when one is already alive, so a dead watcher is
+resurrected within a minute and a live one costs nothing.
 
+Expect **one relaunch** after a full-installer update no matter what. The asar is read at launch
+and replaced seconds before it, so no amount of watching wins that race. In-app payload updates
+are patched before the relaunch and come up already skinned.
+
+Remove it all with:
+
+```
+Unregister-ScheduledTask -TaskName MirasimSkinAutoSync
+```
 ### Uninstall
 
 ```sh

@@ -13,18 +13,19 @@
 //
 //   node autosync.mjs          check, and reinstall if the loader is gone
 //   node autosync.mjs --force  reinstall even if it looks installed
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-import asar from '@electron/asar';
+const require = createRequire(pathToFileURL(path.join(
+  os.homedir(), 'Documents/ChatGPT/Mirasim/work/asar-tool/x.cjs')));
+const asar = require('@electron/asar');
 
 const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/(?=[A-Za-z]:)/, ''));
-const RES = process.env.MIRASIM_RESOURCES
-  || path.join(os.homedir(), 'AppData/Local/Programs/@mirasimdesktop/resources');
-const ASAR = path.join(RES, 'app.asar');
-const UPD_ROOT = path.join(os.homedir(), '.mirasim', 'app');
+const ASAR = path.join(os.homedir(), 'AppData/Local/Programs/@mirasimdesktop/resources/app.asar');
 const LOG = path.join(HERE, 'autosync.log');
 const LOADER_NAME = 'mirasim-skinmgr-loader.js';
 
@@ -63,8 +64,9 @@ try {
   // the payload dir the app actually renders from, when one is active
   let payloadGap = null;
   try {
-    const good = JSON.parse(fs.readFileSync(path.join(UPD_ROOT, 'state.json'), 'utf8')).good;
-    const idx = good && path.join(UPD_ROOT, good, 'renderer', 'index.html');
+    const upd = path.join(os.homedir(), '.mirasim', 'app');
+    const good = JSON.parse(fs.readFileSync(path.join(upd, 'state.json'), 'utf8')).good;
+    const idx = good && path.join(upd, good, 'renderer', 'index.html');
     if (idx && fs.existsSync(idx) && !fs.readFileSync(idx, 'utf8').includes(LOADER_NAME)) {
       payloadGap = good;
     }
