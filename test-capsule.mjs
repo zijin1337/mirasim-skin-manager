@@ -77,7 +77,7 @@ const FIX = {
       pacePct: 5.4, deltaText: '匀速快 27%', usedUsd: 565, budgetUsd: 1736, remainUsd: 1171,
       reqCount: 1434, burnPerHour: 2.5, resetText: '6天15:06:46', exhaustText: '9/2 01:58尽', spark: [5, 12, 20, 28, 32] },
   ],
-  totals: { today: { usd: 168, reqs: 332 }, week: { usd: 168, reqs: 332 }, month: { usd: 2355, reqs: 4443 } },
+  totals: { today: { usd: 168, reqs: 332 }, week: { usd: 168, reqs: 332 }, month: { usd: 2355, reqs: 4443 }, rolling30: { usd: 2448, reqs: 4600 } },
   live: { model: 'Fable 5', tokPerSec: 34, secPerTurn: 14.5 },
 };
 
@@ -112,7 +112,10 @@ test('面板：卡片/累计/吞吐/火花线齐全', () => {
   assert.match(h, /9\/2 01:58尽/);      // exhaust
   assert.match(h, /<polyline/);         // 火花线
   assert.match(h, /已花/);              // 累计区
-  assert.match(h, /本月 \$2,355/);
+  assert.match(h, /近 30 天 \$2,448/);  // 大字用滚动 30 天
+  assert.match(h, /今日/);              // 三个小行
+  assert.match(h, /本周/);
+  assert.match(h, /本月/);
   assert.match(h, /Fable 5/);           // live
   assert.match(h, /34 tok\/s/);
 });

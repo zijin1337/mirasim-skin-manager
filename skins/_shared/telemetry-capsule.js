@@ -168,8 +168,9 @@
       '<span class="exp">' + (d.plan && d.plan.validUntil ? '到期 ' + esc(d.plan.validUntil) : '') + '</span></div>' +
       cards +
       '<div class="sec"><div class="h">已花 · 仅经 Mirasim</div>' +
-      (tot.month ? '<div class="big">本月 ' + usd(tot.month.usd) + '</div>' : '') +
-      totRow('本周', tot.week) + totRow('本月', tot.month) + '</div>' +
+      // 大字用滚动 30 天（日历"本月"会在月初归零，不适合当主数字）
+      (tot.rolling30 ? '<div class="big">近 30 天 ' + usd(tot.rolling30.usd) + '</div>' : '') +
+      totRow('今日', tot.today) + totRow('本周', tot.week) + totRow('本月', tot.month) + '</div>' +
       live +
       '<div class="foot"><span class="d"></span>' + (stale ? '离线' : '精确') + ' · ' + freshAgo + '</div>';
   }
