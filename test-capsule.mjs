@@ -4,13 +4,13 @@ import { readFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-// 两份副本目录名不同：work 用 skins-src/clove，发布仓用 skins/clove
+// 胶囊现为共享模块（_shared）；两份副本目录名不同：work=skins-src，发布仓=skins
 function capsulePath() {
-  for (const rel of ['./skins-src/clove/telemetry-capsule.js', './skins/clove/telemetry-capsule.js']) {
+  for (const rel of ['./skins-src/_shared/telemetry-capsule.js', './skins/_shared/telemetry-capsule.js']) {
     const u = new URL(rel, import.meta.url);
     if (existsSync(u)) return u;
   }
-  throw new Error('telemetry-capsule.js not found in skins-src/ or skins/');
+  throw new Error('telemetry-capsule.js not found in _shared/');
 }
 
 function makeDom() {
@@ -117,8 +117,9 @@ test('面板：卡片/累计/吞吐/火花线齐全', () => {
   assert.match(h, /34 tok\/s/);
 });
 
-test('无数据：药丸显示用量离线，不抛错', () => {
+test('从未收到数据（没装 glassgauge）：完全隐身，不留离线药丸', () => {
   const doc = loadCapsule(null);
   const cap = doc.getElementById('gg-cap');
-  assert.match(cap.innerHTML, /离线/);
+  // 要么根本没创建，要么创建了也 display:none
+  assert.ok(!cap || cap.style.display === 'none', '无数据时药丸不可见');
 });

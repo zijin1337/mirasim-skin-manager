@@ -57,6 +57,18 @@
     document.head.appendChild(js);
   }
 
+  // 遥测胶囊：主题中立，无视当前皮肤（含"原版"）总是注入，让停在原版也能看到用量胶囊。
+  // 由外部 glassgauge 写 _shared/telemetry.js 供数；没装 glassgauge 时胶囊自己保持隐身。
+  function mountCapsule() {
+    try {
+      window.__GG_SHARED = SKINS + '/_shared/';
+      var s = document.createElement('script');
+      s.src = SKINS + '/_shared/telemetry-capsule.js';
+      s.onerror = function () {}; // 老安装没有这个文件就算了
+      document.head.appendChild(s);
+    } catch (e) {}
+  }
+
   function loadManifest() {
     var s = document.createElement('script');
     s.src = SKINS + '/manifest.js';
@@ -175,6 +187,7 @@
     } catch (e) {}
     beacon('boot');
     mountActive();
+    mountCapsule();   // 独立于皮肤，原版也注入
     loadManifest();
 
     window.addEventListener('keydown', function (e) {

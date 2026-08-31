@@ -1033,14 +1033,6 @@
         document.head.appendChild(dg);
       } catch (e) {}
 
-      /* 内嵌遥测胶囊（右下角药丸 + 富面板）。数据由 glassgauge.exe 喂
-         _shared/telemetry.js；glassgauge 没跑就显示离线，不影响皮肤其余部分。 */
-      try {
-        var tc = document.createElement('script');
-        tc.src = (window.__SKIN_ROOT || './') + 'telemetry-capsule.js';
-        document.head.appendChild(tc);
-      } catch (e) {}
-
       /* The dashboard half: butterflies stand in for live agents. Everything
          here is additive — with no bridge, none of it exists and she is the
          decoration she always was. */

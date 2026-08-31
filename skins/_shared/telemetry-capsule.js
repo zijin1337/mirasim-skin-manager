@@ -1,9 +1,11 @@
 /* 内嵌遥测胶囊（spec 2026-08-31）：右下角小药丸 + 点开富面板。
  *
- * 纯显示，零计算——数据由 glassgauge.exe 每 5s 写到
- * ~/.mirasim/skins/_shared/telemetry.js（window.__ggTelemetry），本模块加载它并渲染。
- * 自包含：DOM + 样式都在这一个文件里，改完 Ctrl+R 即生效。
- * 深色 UI 上用浅色字（与桌面浮窗相反）。glassgauge 没跑 / 数据 >20s 未更新 → 药丸转灰"离线"。
+ * 共享模块：由加载器无视当前皮肤（含"原版"）总是注入，所以停在原版也能看到胶囊。
+ * 纯显示，零计算——数据由 glassgauge.exe 每 5s 写到 _shared/telemetry.js
+ * （window.__ggTelemetry），本模块加载它并渲染。定位用 window.__GG_SHARED（加载器给的
+ * _shared/ 绝对 URL），退回 __SKIN_ROOT。
+ * 关键：**从未收到过数据（没装 glassgauge）时完全隐藏**，不给无关用户留一个离线药丸；
+ * 收到过之后再断流才显示"离线"。深色 UI 浅字。
  */
 (function () {
   'use strict';
@@ -11,9 +13,8 @@
   window.__ggCapsule = { v: 1 };
 
   var STALE_MS = 20000;
-  var SKIN_ROOT = window.__SKIN_ROOT || './';
+  var SHARED = window.__GG_SHARED || ((window.__SKIN_ROOT || './') + '../_shared/');
   var open = false;
-  var pinned = false;
 
   /* ---------- 样式（内联，仅本模块） ---------- */
   var css = [
@@ -97,10 +98,16 @@
   }
 
   function render() {
-    ensureStyle();
     var d = window.__ggTelemetry;
     var cap = document.getElementById('gg-cap');
     var panel = document.getElementById('gg-panel');
+    // 从未收到数据（没装 glassgauge）→ 完全隐身，不创建任何 DOM
+    if (!d) {
+      if (cap) cap.style.display = 'none';
+      if (panel) panel.classList.remove('show');
+      return;
+    }
+    ensureStyle();
     if (!cap) {
       cap = document.createElement('div'); cap.id = 'gg-cap';
       cap.addEventListener('click', toggle);
@@ -110,10 +117,11 @@
       panel = document.createElement('div'); panel.id = 'gg-panel';
       document.body.appendChild(panel);
     }
-    var stale = !d || !d.at || (Date.now() / 1000 - d.at) * 1000 > STALE_MS;
-    cap.classList.toggle('off', stale || !d || d.connected === false);
+    cap.style.display = '';
+    var stale = !d.at || (Date.now() / 1000 - d.at) * 1000 > STALE_MS;
+    cap.classList.toggle('off', stale || d.connected === false);
 
-    if (!d || !d.windows || !d.windows.length) {
+    if (!d.windows || !d.windows.length) {
       cap.innerHTML = '<span class="d"></span><span class="n">用量离线</span>';
     } else {
       var t = tightest(d.windows);
@@ -192,9 +200,9 @@
   /* ---------- data pump: reload telemetry.js every 5s (cache-bust) ---------- */
   function pump() {
     var s = document.createElement('script');
-    s.src = SKIN_ROOT + '../_shared/telemetry.js?t=' + Date.now();
+    s.src = SHARED + 'telemetry.js?t=' + Date.now();
     s.onload = function () { this.remove(); };
-    s.onerror = function () { this.remove(); render(); }; // 加载失败也刷新（转离线）
+    s.onerror = function () { this.remove(); render(); }; // 加载失败也刷新（有旧数据→离线；无→保持隐身）
     (document.head || document.documentElement).appendChild(s);
   }
 
